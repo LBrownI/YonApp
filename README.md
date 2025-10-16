@@ -19,14 +19,14 @@
         <sub><b>@DalexQ</b></sub>
       </a>
     </td>
-  </tr>
-  <tr>
     <td align="center">
       <a href="https://github.com/Vinbu">
         <img src="https://github.com/Vinbu.png" width="100px;" alt="Vinbu"/><br />
         <sub><b>@Vinbu</b></sub>
       </a>
     </td>
+  </tr>
+  <tr>
     <td align="center">
       <a href="https://github.com/ninaaaa3">
         <img src="https://github.com/ninaaaa3.png" width="100px;" alt="ninaaaa3"/><br />
