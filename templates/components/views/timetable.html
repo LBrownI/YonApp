@@ -1,0 +1,12 @@
+<section id="tab-timetable" class="view-section hidden space-y-6">
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex gap-4 items-center">
+        <label class="text-sm font-medium text-slate-700">Seleccionar Sala:</label>
+        <select id="room-selector" onchange="renderTimetable(this.value)" class="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2 w-64">
+            <option value="">-- Seleccione una Sala --</option>
+        </select>
+    </div>
+
+    <div id="timetable-container" class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden min-h-[300px] p-4">
+        <p class="text-center text-slate-400 mt-10">Selecciona una sala para ver su horario.</p>
+    </div>
+</section>

@@ -1,0 +1,21 @@
+<aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl z-20">
+    <div class="p-6 flex items-center gap-3 border-b border-slate-800">
+        <i data-lucide="layout-grid" class="w-6 h-6 text-blue-400"></i>
+        <span class="font-bold text-white tracking-wide">YonApp</span>
+    </div>
+    
+    <nav class="flex-1 py-6 px-3 space-y-1">
+        <button onclick="switchTab('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left bg-slate-800 text-white" id="btn-dashboard">
+            <i data-lucide="home" class="w-5 h-5"></i> Inicio
+        </button>
+        <button onclick="switchTab('upload')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left" id="btn-upload">
+            <i data-lucide="upload-cloud" class="w-5 h-5"></i> Importar Excel
+        </button>
+        <button onclick="switchTab('timetable')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left" id="btn-timetable">
+            <i data-lucide="calendar" class="w-5 h-5"></i> Ver Horarios
+        </button>
+        <button onclick="switchTab('occupancy')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left" id="btn-occupancy">
+            <i data-lucide="activity" class="w-5 h-5"></i> Ocupación Salas
+        </button>
+    </nav>
+</aside>

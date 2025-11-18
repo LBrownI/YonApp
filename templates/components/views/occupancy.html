@@ -1,0 +1,27 @@
+<section id="tab-occupancy" class="view-section hidden space-y-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+            <div class="p-6 border-b border-slate-100">
+                <h3 class="font-semibold text-slate-800">Estado de Ocupación por Sala</h3>
+            </div>
+            <table class="w-full text-sm">
+                <thead class="bg-slate-50 text-slate-500">
+                    <tr>
+                        <th class="px-6 py-3 text-left">Sala</th>
+                        <th class="px-6 py-3 text-left">Ocupación</th>
+                        <th class="px-6 py-3 text-left">% Saturación</th>
+                        <th class="px-6 py-3 text-left">Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="occupancy-table-body" class="divide-y divide-slate-100">
+                    <!-- Se llena con JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+            <h3 class="font-semibold text-slate-800 mb-4">Resumen Global</h3>
+            <canvas id="occupancyChart" width="200" height="200"></canvas>
+        </div>
+    </div>
+</section>

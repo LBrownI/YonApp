@@ -1,0 +1,27 @@
+<section id="tab-dashboard" class="view-section space-y-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-slate-500 text-sm">Total de Cursos</p>
+                    <h3 id="stat-total-courses" class="text-3xl font-bold text-slate-800 mt-1">0</h3>
+                </div>
+                <div class="bg-blue-50 p-2 rounded-lg text-blue-600"><i data-lucide="book-open"></i></div>
+            </div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-slate-500 text-sm">Salas Gestionadas</p>
+                    <h3 id="stat-total-rooms" class="text-3xl font-bold text-slate-800 mt-1">0</h3>
+                </div>
+                <div class="bg-green-50 p-2 rounded-lg text-green-600"><i data-lucide="door-open"></i></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Estado Inicial -->
+    <div id="empty-state" class="text-center py-12">
+        <p class="text-slate-500">Aún no has subido ningún horario. Ve a la pestaña "Importar Excel".</p>
+    </div>
+</section>

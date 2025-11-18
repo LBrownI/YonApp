@@ -1,0 +1,16 @@
+<section id="tab-upload" class="view-section hidden space-y-6">
+    <div class="bg-white p-8 rounded-xl border-2 border-dashed border-slate-300 hover:border-blue-500 transition text-center relative">
+        <input type="file" id="excelFile" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".xlsx, .xls" onchange="previewFile()">
+        <div class="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="upload-cloud" class="w-8 h-8 text-blue-600"></i>
+        </div>
+        <h3 class="text-lg font-medium text-slate-800">Sube tu archivo Excel aquí</h3>
+        <p id="file-name-display" class="text-slate-500 text-sm mt-2">Arrastra y suelta o haz clic</p>
+    </div>
+    
+    <div id="upload-preview" class="hidden fade-in text-right">
+        <button onclick="uploadFileToBackend()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition shadow-lg">
+            Procesar Archivo en Python
+        </button>
+    </div>
+</section>
