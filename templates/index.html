@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UniScheduler - Gestión de Horarios</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* Escala de ocupación dinámica */
+        .ocup-low { background-color: #dcfce7; color: #166534; border-left: 4px solid #22c55e; } 
+        .ocup-med { background-color: #fef9c3; color: #854d0e; border-left: 4px solid #eab308; } 
+        .ocup-high { background-color: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; } 
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-screen overflow-hidden flex flex-col font-sans">
+
+    <!-- ================= VISTA: LOGIN ================= -->
+    <div id="view-login" class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-blue-900 to-slate-800">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md fade-in">
+            <div class="text-center mb-8">
+                <div class="bg-blue-100 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                    <i data-lucide="calendar-clock" class="w-8 h-8 text-blue-600"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-800">UniScheduler</h1>
+                <p class="text-slate-500 text-sm">Sistema de Gestión de Horarios y Salas</p>
+            </div>
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Usuario</label>
+                    <input type="text" placeholder="admin" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-lg transition shadow-lg">
+                    Iniciar Sesión
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= LAYOUT PRINCIPAL ================= -->
+    <div id="main-layout" class="hidden flex-1 flex h-screen overflow-hidden">
+        
+        <!-- SIDEBAR -->
+        <aside class="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl z-20">
+            <div class="p-6 flex items-center gap-3 border-b border-slate-800">
+                <i data-lucide="layout-grid" class="w-6 h-6 text-blue-400"></i>
+                <span class="font-bold text-white tracking-wide">UniScheduler</span>
+            </div>
+            
+            <nav class="flex-1 py-6 px-3 space-y-1">
+                <button onclick="switchTab('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left bg-slate-800 text-white" id="btn-dashboard">
+                    <i data-lucide="home" class="w-5 h-5"></i> Inicio
+                </button>
+                <button onclick="switchTab('upload')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left" id="btn-upload">
+                    <i data-lucide="upload-cloud" class="w-5 h-5"></i> Importar Excel
+                </button>
+                <button onclick="switchTab('timetable')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left" id="btn-timetable">
+                    <i data-lucide="calendar" class="w-5 h-5"></i> Ver Horarios
+                </button>
+                <button onclick="switchTab('occupancy')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left" id="btn-occupancy">
+                    <i data-lucide="activity" class="w-5 h-5"></i> Ocupación Salas
+                </button>
+            </nav>
+        </aside>
+
+        <!-- CONTENIDO -->
+        <main class="flex-1 flex flex-col bg-slate-50 h-full relative overflow-hidden">
+            <!-- Header -->
+            <header class="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-8 shadow-sm z-10">
+                <h2 id="page-title" class="text-xl font-semibold text-slate-800">Dashboard General</h2>
+                <div class="flex items-center gap-4">
+                    <span class="text-sm text-slate-500" id="date-display"></span>
+                </div>
+            </header>
+
+            <!-- Contenedor Scrolleable -->
+            <div class="flex-1 overflow-y-auto p-8 relative">
+                
+                <!-- VISTA 1: DASHBOARD -->
+                <section id="tab-dashboard" class="view-section space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-slate-500 text-sm">Total de Cursos</p>
+                                    <h3 id="stat-total-courses" class="text-3xl font-bold text-slate-800 mt-1">0</h3>
+                                </div>
+                                <div class="bg-blue-50 p-2 rounded-lg text-blue-600"><i data-lucide="book-open"></i></div>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-slate-500 text-sm">Salas Gestionadas</p>
+                                    <h3 id="stat-total-rooms" class="text-3xl font-bold text-slate-800 mt-1">0</h3>
+                                </div>
+                                <div class="bg-green-50 p-2 rounded-lg text-green-600"><i data-lucide="door-open"></i></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Estado Inicial -->
+                    <div id="empty-state" class="text-center py-12">
+                        <p class="text-slate-500">Aún no has subido ningún horario. Ve a la pestaña "Importar Excel".</p>
+                    </div>
+                </section>
+
+                <!-- VISTA 2: UPLOAD -->
+                <section id="tab-upload" class="view-section hidden space-y-6">
+                    <div class="bg-white p-8 rounded-xl border-2 border-dashed border-slate-300 hover:border-blue-500 transition text-center relative">
+                        <input type="file" id="excelFile" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" accept=".xlsx, .xls" onchange="previewFile()">
+                        <div class="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i data-lucide="upload-cloud" class="w-8 h-8 text-blue-600"></i>
+                        </div>
+                        <h3 class="text-lg font-medium text-slate-800">Sube tu archivo Excel aquí</h3>
+                        <p id="file-name-display" class="text-slate-500 text-sm mt-2">Arrastra y suelta o haz clic</p>
+                    </div>
+                    
+                    <div id="upload-preview" class="hidden fade-in text-right">
+                        <button onclick="uploadFileToBackend()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition shadow-lg">
+                            Procesar Archivo en Python
+                        </button>
+                    </div>
+                </section>
+
+                <!-- VISTA 3: HORARIOS -->
+                <section id="tab-timetable" class="view-section hidden space-y-6">
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex gap-4 items-center">
+                        <label class="text-sm font-medium text-slate-700">Seleccionar Sala:</label>
+                        <select id="room-selector" onchange="renderTimetable(this.value)" class="bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg p-2 w-64">
+                            <option value="">-- Seleccione una Sala --</option>
+                        </select>
+                    </div>
+
+                    <div id="timetable-container" class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden min-h-[300px] p-4">
+                        <p class="text-center text-slate-400 mt-10">Selecciona una sala para ver su horario.</p>
+                    </div>
+                </section>
+
+                <!-- VISTA 4: OCUPACIÓN -->
+                <section id="tab-occupancy" class="view-section hidden space-y-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                            <div class="p-6 border-b border-slate-100">
+                                <h3 class="font-semibold text-slate-800">Estado de Ocupación por Sala</h3>
+                            </div>
+                            <table class="w-full text-sm">
+                                <thead class="bg-slate-50 text-slate-500">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left">Sala</th>
+                                        <th class="px-6 py-3 text-left">Ocupación</th>
+                                        <th class="px-6 py-3 text-left">% Saturación</th>
+                                        <th class="px-6 py-3 text-left">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="occupancy-table-body" class="divide-y divide-slate-100">
+                                    <!-- Se llena con JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                            <h3 class="font-semibold text-slate-800 mb-4">Resumen Global</h3>
+                            <canvas id="occupancyChart" width="200" height="200"></canvas>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        lucide.createIcons();
+        let globalData = null; // Aquí guardaremos la respuesta del backend
+
+        // --- LÓGICA DE INTERFAZ ---
+        function handleLogin(e) {
+            e.preventDefault();
+            document.getElementById('view-login').classList.add('hidden');
+            document.getElementById('main-layout').classList.remove('hidden');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-slate-800', 'text-white');
+                btn.classList.add('text-slate-300');
+            });
+            document.getElementById('btn-' + tabId).classList.add('bg-slate-800', 'text-white');
+            
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+            
+            // Título dinámico
+            const titles = {
+                'dashboard': 'Dashboard General',
+                'upload': 'Importación de Datos',
+                'timetable': 'Visualizador de Horarios',
+                'occupancy': 'Monitor de Ocupación'
+            };
+            document.getElementById('page-title').innerText = titles[tabId];
+
+            if(tabId === 'occupancy' && globalData) {
+                renderOccupancyChart();
+            }
+        }
+
+        // --- LÓGICA DE CARGA Y COMUNICACIÓN CON FLASK ---
+        
+        function previewFile() {
+            const input = document.getElementById('excelFile');
+            const display = document.getElementById('file-name-display');
+            if(input.files.length > 0) {
+                display.innerText = input.files[0].name;
+                document.getElementById('upload-preview').classList.remove('hidden');
+            }
+        }
+
+        async function uploadFileToBackend() {
+            const input = document.getElementById('excelFile');
+            const formData = new FormData();
+            formData.append('file', input.files[0]);
+
+            try {
+                // Petición al backend Python
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+
+                if (result.success) {
+                    globalData = result.data; // Guardar datos en memoria
+                    alert('¡Datos procesados por Python correctamente!');
+                    updateDashboard(globalData);
+                    updateOccupancyTable(globalData.stats);
+                    populateRoomSelector(globalData.stats);
+                    switchTab('occupancy');
+                } else {
+                    alert('Error: ' + result.error);
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error de conexión con el servidor Flask.');
+            }
+        }
+
+        // --- ACTUALIZACIÓN DE DOM CON DATOS REALES ---
+
+        function updateDashboard(data) {
+            document.getElementById('stat-total-courses').innerText = data.total_courses;
+            document.getElementById('stat-total-rooms').innerText = data.total_rooms;
+            document.getElementById('empty-state').classList.add('hidden');
+        }
+
+        function updateOccupancyTable(stats) {
+            const tbody = document.getElementById('occupancy-table-body');
+            tbody.innerHTML = ''; // Limpiar
+
+            stats.forEach(room => {
+                const tr = document.createElement('tr');
+                tr.className = room.status_class; // Clase de color desde Python
+                tr.innerHTML = `
+                    <td class="px-6 py-4 font-bold">${room.sala}</td>
+                    <td class="px-6 py-4">${room.ocupados} bloques / sem</td>
+                    <td class="px-6 py-4 font-bold">${room.porcentaje}%</td>
+                    <td class="px-6 py-4 font-bold flex items-center gap-2">
+                        <div class="w-3 h-3 rounded-full ${room.dot_color}"></div>
+                        ${room.status_text}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function populateRoomSelector(stats) {
+            const selector = document.getElementById('room-selector');
+            selector.innerHTML = '<option value="">-- Seleccione una Sala --</option>';
+            stats.forEach(room => {
+                const option = document.createElement('option');
+                option.value = room.sala;
+                option.innerText = room.sala;
+                selector.appendChild(option);
+            });
+        }
+
+        // --- RENDERIZADO DE HORARIO ---
+        function renderTimetable(salaName) {
+            const container = document.getElementById('timetable-container');
+            if (!salaName || !globalData) return;
+
+            // Filtrar clases solo para esta sala
+            const classes = globalData.schedule.filter(c => c.ubicacion === salaName);
+
+            // Crear tabla simple
+            let html = `
+                <h3 class="text-lg font-bold mb-4 text-slate-800">Horario: ${salaName}</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            `;
+
+            if (classes.length === 0) {
+                html += `<p>No hay clases asignadas.</p>`;
+            } else {
+                classes.forEach(cls => {
+                    html += `
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded shadow-sm">
+                            <div class="font-bold text-blue-900">${cls.materia}</div>
+                            <div class="text-sm text-blue-700 mt-1">🕒 ${cls.tiempo}</div>
+                            <div class="text-xs text-slate-500 mt-2">Grupo: ${cls.grupo || 'General'}</div>
+                        </div>
+                    `;
+                });
+            }
+            html += `</div>`;
+            container.innerHTML = html;
+        }
+
+        // --- GRÁFICOS ---
+        let chartInstance = null;
+        function renderOccupancyChart() {
+            const ctx = document.getElementById('occupancyChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy(); // Reiniciar si existe
+
+            // Contar estados
+            let saturadas = globalData.stats.filter(s => s.status_text === 'Saturada').length;
+            let normal = globalData.stats.filter(s => s.status_text === 'Normal').length;
+            let libres = globalData.stats.filter(s => s.status_text === 'Libre').length;
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Saturadas (>70%)', 'Normal', 'Libres (<20%)'],
+                    datasets: [{
+                        data: [saturadas, normal, libres],
+                        backgroundColor: ['#ef4444', '#eab308', '#22c55e'],
+                        borderWidth: 0
+                    }]
+                }
+            });
+        }
+        
+        // Fecha
+        document.getElementById('date-display').innerText = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    </script>
+</body>
+</html>
