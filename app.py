@@ -268,5 +268,16 @@ def add_room():
     return jsonify({"error": "Nombre inválido"}), 400
 
 
+# --- NUEVA RUTA PARA BORRAR ---
+@app.route("/delete_room", methods=["POST"])
+def delete_room():
+    data = request.json
+    room_to_delete = data.get("room_name")
+    if room_to_delete and room_to_delete in dynamic_rooms:
+        dynamic_rooms.remove(room_to_delete)
+        return jsonify({"success": True})
+    return jsonify({"error": "Sala no encontrada"}), 404
+
+
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

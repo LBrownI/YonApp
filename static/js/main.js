@@ -1,6 +1,7 @@
 // Main frontend logic
 lucide.createIcons();
-let globalData = null; // Aquí guardaremos la respuesta del backend
+let globalData = null;
+let sortDirection = 'asc'; // Estado inicial: Ascendente
 
 // --- LÓGICA DE INTERFAZ ---
 function handleLogin(e) {
@@ -21,7 +22,6 @@ function switchTab(tabId) {
     const view = document.getElementById('tab-' + tabId);
     if (view) view.classList.remove('hidden');
     
-    // Título dinámico
     const titles = {
         'dashboard': 'Dashboard General',
         'upload': 'Importación de Datos',
@@ -35,8 +35,6 @@ function switchTab(tabId) {
         renderOccupancyChart();
     }
 }
-
-// --- LÓGICA DE CARGA Y COMUNICACIÓN CON FLASK ---
 
 function previewFile() {
     const input = document.getElementById('excelFile');
@@ -60,11 +58,13 @@ async function uploadFileToBackend() {
             globalData = result.data;
             alert('¡Datos procesados correctamente!');
             updateDashboard(globalData);
-            updateOccupancyTable(globalData.stats);
+            
+            // Ordenamiento inicial
+            sortDirection = 'asc';
+            applySort(); 
+            
             populateRoomSelector(globalData.stats);
             switchTab('occupancy');
-            
-            // Inicializar gráfico
             renderOccupancyChart();
         } else {
             alert('Error: ' + result.error);
@@ -75,7 +75,6 @@ async function uploadFileToBackend() {
     }
 }
 
-// --- NUEVO: Añadir Sala Manualmente ---
 async function handleAddRoom() {
     const name = prompt("Ingrese el nombre de la nueva sala (Ej: Z900):");
     if(!name) return;
@@ -89,7 +88,87 @@ async function handleAddRoom() {
     } catch(e) { alert("Error añadiendo sala"); }
 }
 
+async function deleteRoom(roomName) {
+    if(!confirm(`¿Estás seguro de eliminar la sala ${roomName}?`)) return;
+
+    try {
+        const res = await fetch('/delete_room', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ room_name: roomName })
+        });
+        const json = await res.json();
+        
+        if(json.success) {
+            globalData.stats = globalData.stats.filter(r => r.sala !== roomName);
+            applySort(); // Re-aplicar orden actual
+            renderOccupancyChart();
+            populateRoomSelector(globalData.stats);
+        } else {
+            alert("Error: " + json.error);
+        }
+    } catch(e) {
+        alert("Error de conexión al eliminar.");
+    }
+}
+
+// --- NUEVA LÓGICA DE ORDENAMIENTO CON DIRECCIÓN ---
+
+function toggleSortDirection() {
+    // 1. Cambiar estado
+    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+    
+    // 2. Cambiar icono visualmente
+    const btn = document.getElementById('sort-dir-btn');
+    const isAlpha = document.getElementById('sort-criteria').value === 'alpha';
+    
+    // Limpiar contenido del botón
+    btn.innerHTML = '';
+    
+    // Crear nuevo icono dependiendo de si es texto o número y dirección
+    const iconName = isAlpha 
+        ? (sortDirection === 'asc' ? 'arrow-up-a-z' : 'arrow-down-z-a')
+        : (sortDirection === 'asc' ? 'arrow-up-0-1' : 'arrow-down-1-0');
+
+    const i = document.createElement('i');
+    i.setAttribute('data-lucide', iconName);
+    i.className = "w-4 h-4";
+    btn.appendChild(i);
+    
+    lucide.createIcons(); // Renderizar el nuevo icono
+
+    // 3. Aplicar orden
+    applySort();
+}
+
+function applySort() {
+    if (!globalData || !globalData.stats) return;
+    
+    const criteria = document.getElementById('sort-criteria').value;
+    const stats = globalData.stats;
+    const multiplier = sortDirection === 'asc' ? 1 : -1;
+
+    stats.sort((a, b) => {
+        let valA, valB;
+
+        if (criteria === 'alpha') {
+            // Orden alfabético
+            return multiplier * a.sala.localeCompare(b.sala, undefined, {numeric: true, sensitivity: 'base'});
+        } else if (criteria === 'occupancy') {
+            // Orden por ocupación (bloques)
+            return multiplier * (a.ocupados - b.ocupados);
+        } else if (criteria === 'capacity') {
+            // Orden por capacidad
+            return multiplier * (a.capacidad_max - b.capacidad_max);
+        }
+    });
+
+    updateOccupancyTable(stats);
+}
+
+
 // --- ACTUALIZACIÓN DE DOM ---
+
 function updateDashboard(data) {
     document.getElementById('stat-total-courses').innerText = data.total_courses;
     document.getElementById('stat-total-rooms').innerText = data.total_rooms;
@@ -102,8 +181,13 @@ function updateOccupancyTable(stats) {
 
     stats.forEach(room => {
         const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50 transition"; 
+        tr.className = "hover:bg-slate-50 transition group";
         tr.innerHTML = `
+            <td class="px-4 py-4 text-center">
+                <button onclick="deleteRoom('${room.sala}')" class="text-slate-400 hover:text-red-500 transition p-1 rounded hover:bg-red-50" title="Eliminar Sala">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+            </td>
             <td class="px-6 py-4 font-bold text-slate-700">${room.sala}</td>
             <td class="px-6 py-4 text-slate-500">${room.capacidad_max} est.</td>
             <td class="px-6 py-4">
@@ -119,13 +203,18 @@ function updateOccupancyTable(stats) {
                 <span class="text-xs font-bold mt-1 block text-right">${room.porcentaje}%</span>
             </td>
             <td class="px-6 py-4 font-bold text-xs">
-                 <span class="px-2 py-1 rounded border ${room.porcentaje >= 70 ? 'bg-red-50 border-red-200 text-red-700' : room.porcentaje >= 20 ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-green-50 border-green-200 text-green-700'}">
+                 <span class="px-2 py-1 rounded border ${
+                     room.status_text === 'Saturada' ? 'bg-red-50 border-red-200 text-red-700' : 
+                     room.status_text === 'Normal' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 
+                     'bg-green-50 border-green-200 text-green-700'
+                 }">
                     ${room.status_text}
                  </span>
             </td>
         `;
         tbody.appendChild(tr);
     });
+    lucide.createIcons();
 }
 
 function populateRoomSelector(stats) {
@@ -139,11 +228,8 @@ function populateRoomSelector(stats) {
     });
 }
 
-// --- RENDERIZADO DE HORARIO ---
 function renderTimetable(salaName) {
     if (!salaName || !globalData) return;
-
-    // 1. Limpiar cuadrícula
     const days = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
     for (let i = 1; i <= 8; i++) {
         days.forEach(day => {
@@ -151,19 +237,14 @@ function renderTimetable(salaName) {
             if (cell) cell.innerHTML = ''; 
         });
     }
-
-    // 2. Filtrar clases
     const classes = globalData.schedule.filter(c => c.ubicacion === salaName);
-
-    // 3. Llenar celdas
     classes.forEach(cls => {
         const cellId = `cell-${cls.dia_norm}-${cls.modulo}`;
         const cell = document.getElementById(cellId);
-
         if (cell) {
             cell.innerHTML = `
                 <div class="bg-blue-100 border-l-4 border-blue-600 p-1.5 rounded text-xs shadow-sm h-full overflow-hidden flex flex-col justify-center items-center text-center">
-                    <div class="font-bold text-blue-900 truncate" title="NRC: ${cls.nrc} Sec: ${cls.seccion}">
+                    <div class="font-bold text-blue-900 truncate w-full" title="NRC: ${cls.nrc} Sec: ${cls.seccion}">
                         NRC ${cls.nrc} – ${cls.seccion}
                     </div>
                 </div>
@@ -172,7 +253,6 @@ function renderTimetable(salaName) {
     });
 }
 
-// --- GRÁFICOS ---
 let chartInstance = null;
 function renderOccupancyChart() {
     const ctx = document.getElementById('occupancyChart').getContext('2d');
@@ -185,7 +265,6 @@ function renderOccupancyChart() {
     chartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            // CAMBIO: Actualicé las etiquetas para reflejar la nueva lógica
             labels: ['Saturadas (≥30 blq)', 'Normal (≥15 blq)', 'Libres (<15 blq)'],
             datasets: [{
                 data: [saturadas, normal, libres],
@@ -196,5 +275,4 @@ function renderOccupancyChart() {
     });
 }
 
-// Fecha
 document.getElementById('date-display').innerText = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
