@@ -79,24 +79,17 @@ async function uploadFileToBackend() {
 async function handleAddRoom() {
     const name = prompt("Ingrese el nombre de la nueva sala (Ej: Z900):");
     if(!name) return;
-
     try {
         const res = await fetch('/add_room', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ room_name: name })
         });
         const json = await res.json();
-        if(json.success) {
-            alert("Sala añadida. Vuelva a procesar el archivo para actualizar tablas.");
-        }
-    } catch(e) {
-        alert("Error añadiendo sala");
-    }
+        if(json.success) alert("Sala añadida. Vuelva a procesar el archivo.");
+    } catch(e) { alert("Error añadiendo sala"); }
 }
 
-// --- ACTUALIZACIÓN DE DOM CON DATOS REALES ---
-
+// --- ACTUALIZACIÓN DE DOM ---
 function updateDashboard(data) {
     document.getElementById('stat-total-courses').innerText = data.total_courses;
     document.getElementById('stat-total-rooms').innerText = data.total_rooms;
@@ -192,7 +185,8 @@ function renderOccupancyChart() {
     chartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
-            labels: ['Saturadas (>70%)', 'Normal', 'Libres (<20%)'],
+            // CAMBIO: Actualicé las etiquetas para reflejar la nueva lógica
+            labels: ['Saturadas (≥30 blq)', 'Normal (≥15 blq)', 'Libres (<15 blq)'],
             datasets: [{
                 data: [saturadas, normal, libres],
                 backgroundColor: ['#ef4444', '#eab308', '#22c55e'],
