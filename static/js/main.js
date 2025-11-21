@@ -169,9 +169,10 @@ function renderTimetable(salaName) {
 
         if (cell) {
             cell.innerHTML = `
-                <div class="bg-blue-100 border-l-4 border-blue-600 p-2 rounded text-xs shadow-sm h-full overflow-hidden">
-                    <div class="font-bold text-blue-900 truncate" title="${cls.materia}">${cls.materia}</div>
-                    <div class="text-slate-600 mt-1 truncate">Grp: ${cls.grupo}</div>
+                <div class="bg-blue-100 border-l-4 border-blue-600 p-1.5 rounded text-xs shadow-sm h-full overflow-hidden flex flex-col justify-center items-center text-center">
+                    <div class="font-bold text-blue-900 truncate" title="NRC: ${cls.nrc} Sec: ${cls.seccion}">
+                        NRC ${cls.nrc} – ${cls.seccion}
+                    </div>
                 </div>
             `;
         }

@@ -27,12 +27,16 @@ dynamic_rooms = set(DEFAULT_ROOMS)
 
 def normalize_columns(df):
     df.columns = df.columns.str.strip().str.lower()
+    # Agregamos 'nrc' y 'seccion' al mapa
     column_mapping = {
         "nombre": "materia",
         "sala": "ubicacion",
         "carrera_reserva": "grupo",
         "hr_inicio": "inicio",
         "hr_fin": "fin",
+        "nrc": "nrc",           # <--- NUEVO
+        "seccion": "seccion",   # <--- NUEVO
+        "sección": "seccion"    # <--- Por si viene con tilde
     }
     df.rename(columns=column_mapping, inplace=True)
     return df
@@ -67,9 +71,9 @@ def get_module_number(start_time_str):
 
 
 def calculate_occupancy_color(occupancy_percentage):
-    if occupancy_percentage >= 70:
+    if occupancy_percentage >= 63:
         return "ocup-high", "Saturada", "bg-red-500"
-    elif occupancy_percentage >= 20:
+    elif occupancy_percentage >= 40:
         return "ocup-med", "Normal", "bg-yellow-500"
     else:
         return "ocup-low", "Libre", "bg-green-500"
@@ -84,26 +88,38 @@ def parse_schedule_row(row):
     module_num = get_module_number(inicio)
 
     if module_num == 0:
-        return []  # Ignorar horas no válidas
+        return []
 
+    # Datos existentes
     materia = str(row.get("materia", "Sin Nombre"))
     ubicacion = str(row.get("ubicacion", "Sin Sala"))
     grupo = str(row.get("grupo", "General"))
+
+    # --- NUEVO: Extracción de NRC y Sección ---
+    # El NRC suele venir como número (ej: 1828.0), así que quitamos el .0
+    nrc = str(row.get("nrc", "")).replace(".0", "")
+    if nrc == "nan":
+        nrc = "?"
+
+    seccion = str(row.get("seccion", ""))
+    if seccion == "nan":
+        seccion = "?"
+    # ------------------------------------------
 
     for day in days:
         if day in row.index:
             val = str(row[day]).strip().lower()
             if val not in ("nan", "", "none"):
-                entries.append(
-                    {
-                        "materia": materia,
-                        "ubicacion": ubicacion,
-                        "grupo": grupo,
-                        "tiempo": f"{inicio} - {fin}",
-                        "modulo": module_num,
-                        "dia_norm": day,  # lunes, martes...
-                    }
-                )
+                entries.append({
+                    "materia": materia,
+                    "ubicacion": ubicacion,
+                    "grupo": grupo,
+                    "nrc": nrc,           # <--- Enviamos NRC
+                    "seccion": seccion,   # <--- Enviamos Sección
+                    "tiempo": f"{inicio} - {fin}",
+                    "modulo": module_num,
+                    "dia_norm": day
+                })
     return entries
 
 
@@ -169,7 +185,7 @@ def process_schedule(file_path):
                 {
                     "sala": sala,
                     "ocupados": count,
-                    "capacidad_max": 40,  # Valor por defecto (Requerimiento 2)
+                    "capacidad_max": 30,  # Valor por defecto (Requerimiento 2)
                     "porcentaje": round(percentage, 1),
                     "status_class": css_class,
                     "status_text": status_text,
