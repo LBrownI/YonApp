@@ -1,4 +1,4 @@
-// Main frontend logic moved from template to static JS
+// Main frontend logic
 lucide.createIcons();
 let globalData = null; // Aquí guardaremos la respuesta del backend
 
@@ -53,28 +53,45 @@ async function uploadFileToBackend() {
     formData.append('file', input.files[0]);
 
     try {
-        // Petición al backend Python
-        const response = await fetch('/upload', {
-            method: 'POST',
-            body: formData
-        });
-        
+        const response = await fetch('/upload', { method: 'POST', body: formData });
         const result = await response.json();
 
         if (result.success) {
-            globalData = result.data; // Guardar datos en memoria
-            alert('¡Datos procesados por Python correctamente!');
+            globalData = result.data;
+            alert('¡Datos procesados correctamente!');
             updateDashboard(globalData);
             updateOccupancyTable(globalData.stats);
             populateRoomSelector(globalData.stats);
             switchTab('occupancy');
+            
+            // Inicializar gráfico
+            renderOccupancyChart();
         } else {
             alert('Error: ' + result.error);
         }
-
     } catch (error) {
-        console.error('Error:', error);
+        console.error(error);
         alert('Error de conexión con el servidor Flask.');
+    }
+}
+
+// --- NUEVO: Añadir Sala Manualmente ---
+async function handleAddRoom() {
+    const name = prompt("Ingrese el nombre de la nueva sala (Ej: Z900):");
+    if(!name) return;
+
+    try {
+        const res = await fetch('/add_room', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ room_name: name })
+        });
+        const json = await res.json();
+        if(json.success) {
+            alert("Sala añadida. Vuelva a procesar el archivo para actualizar tablas.");
+        }
+    } catch(e) {
+        alert("Error añadiendo sala");
     }
 }
 
@@ -88,18 +105,30 @@ function updateDashboard(data) {
 
 function updateOccupancyTable(stats) {
     const tbody = document.getElementById('occupancy-table-body');
-    tbody.innerHTML = ''; // Limpiar
+    tbody.innerHTML = '';
 
     stats.forEach(room => {
         const tr = document.createElement('tr');
-        tr.className = room.status_class; // Clase de color desde Python
+        tr.className = "hover:bg-slate-50 transition"; 
         tr.innerHTML = `
-            <td class="px-6 py-4 font-bold">${room.sala}</td>
-            <td class="px-6 py-4">${room.ocupados} bloques / sem</td>
-            <td class="px-6 py-4 font-bold">${room.porcentaje}%</td>
-            <td class="px-6 py-4 font-bold flex items-center gap-2">
-                <div class="w-3 h-3 rounded-full ${room.dot_color}"></div>
-                ${room.status_text}
+            <td class="px-6 py-4 font-bold text-slate-700">${room.sala}</td>
+            <td class="px-6 py-4 text-slate-500">${room.capacidad_max} est.</td>
+            <td class="px-6 py-4">
+                <div class="flex items-center gap-2">
+                    <span class="font-mono font-bold">${room.ocupados}</span>
+                    <span class="text-xs text-slate-400">bloques</span>
+                </div>
+            </td>
+            <td class="px-6 py-4">
+                <div class="w-full bg-slate-200 rounded-full h-2.5">
+                    <div class="${room.status_class.replace('ocup-high','bg-red-500').replace('ocup-med','bg-yellow-500').replace('ocup-low','bg-green-500')} h-2.5 rounded-full" style="width: ${room.porcentaje}%"></div>
+                </div>
+                <span class="text-xs font-bold mt-1 block text-right">${room.porcentaje}%</span>
+            </td>
+            <td class="px-6 py-4 font-bold text-xs">
+                 <span class="px-2 py-1 rounded border ${room.porcentaje >= 70 ? 'bg-red-50 border-red-200 text-red-700' : room.porcentaje >= 20 ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-green-50 border-green-200 text-green-700'}">
+                    ${room.status_text}
+                 </span>
             </td>
         `;
         tbody.appendChild(tr);
@@ -119,42 +148,42 @@ function populateRoomSelector(stats) {
 
 // --- RENDERIZADO DE HORARIO ---
 function renderTimetable(salaName) {
-    const container = document.getElementById('timetable-container');
     if (!salaName || !globalData) return;
 
-    // Filtrar clases solo para esta sala
-    const classes = globalData.schedule.filter(c => c.ubicacion === salaName);
-
-    // Crear tabla simple
-    let html = `
-        <h3 class="text-lg font-bold mb-4 text-slate-800">Horario: ${salaName}</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    `;
-
-    if (classes.length === 0) {
-        html += `<p>No hay clases asignadas.</p>`;
-    } else {
-        classes.forEach(cls => {
-            html += `
-                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded shadow-sm">
-                    <div class="font-bold text-blue-900">${cls.materia}</div>
-                    <div class="text-sm text-blue-700 mt-1">🕒 ${cls.tiempo}</div>
-                    <div class="text-xs text-slate-500 mt-2">Grupo: ${cls.grupo || 'General'}</div>
-                </div>
-            `;
+    // 1. Limpiar cuadrícula
+    const days = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+    for (let i = 1; i <= 8; i++) {
+        days.forEach(day => {
+            const cell = document.getElementById(`cell-${day}-${i}`);
+            if (cell) cell.innerHTML = ''; 
         });
     }
-    html += `</div>`;
-    container.innerHTML = html;
+
+    // 2. Filtrar clases
+    const classes = globalData.schedule.filter(c => c.ubicacion === salaName);
+
+    // 3. Llenar celdas
+    classes.forEach(cls => {
+        const cellId = `cell-${cls.dia_norm}-${cls.modulo}`;
+        const cell = document.getElementById(cellId);
+
+        if (cell) {
+            cell.innerHTML = `
+                <div class="bg-blue-100 border-l-4 border-blue-600 p-2 rounded text-xs shadow-sm h-full overflow-hidden">
+                    <div class="font-bold text-blue-900 truncate" title="${cls.materia}">${cls.materia}</div>
+                    <div class="text-slate-600 mt-1 truncate">Grp: ${cls.grupo}</div>
+                </div>
+            `;
+        }
+    });
 }
 
 // --- GRÁFICOS ---
 let chartInstance = null;
 function renderOccupancyChart() {
     const ctx = document.getElementById('occupancyChart').getContext('2d');
-    if (chartInstance) chartInstance.destroy(); // Reiniciar si existe
+    if (chartInstance) chartInstance.destroy();
 
-    // Contar estados
     let saturadas = globalData.stats.filter(s => s.status_text === 'Saturada').length;
     let normal = globalData.stats.filter(s => s.status_text === 'Normal').length;
     let libres = globalData.stats.filter(s => s.status_text === 'Libre').length;
