@@ -3,7 +3,6 @@ lucide.createIcons();
 let globalData = null;
 let sortDirection = 'asc'; 
 let currentHighlight = null; 
-// Variable temporal para saber qué sala borrar cuando se confirme en el modal
 let roomPendingDelete = null; 
 
 // --- LÓGICA DE INTERFAZ ---
@@ -16,7 +15,6 @@ function handleLogin(e) {
 function switchTab(tabId) {
     if (tabId !== 'timetable') currentHighlight = null;
 
-    // Manejo de botones del sidebar (Si no existe botón para 'careers', no pasa nada)
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('bg-slate-800', 'text-white');
         btn.classList.add('text-slate-300');
@@ -24,40 +22,48 @@ function switchTab(tabId) {
     const activeBtn = document.getElementById('btn-' + tabId);
     if (activeBtn) activeBtn.classList.add('bg-slate-800', 'text-white');
     
-    // Manejo de Vistas
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     const view = document.getElementById('tab-' + tabId);
     if (view) view.classList.remove('hidden');
     
-    // Títulos Dinámicos
     const titles = {
         'dashboard': 'Inicio',
         'upload': 'Importación de Datos',
         'timetable': 'Visualizador de Horarios',
         'occupancy': 'Monitor de Ocupación',
         'finder': 'Buscador de Salas',
-        'careers': 'Gestión de Asignaturas por Carrera' // Título nuevo
+        'careers': 'Gestión de Asignaturas por Carrera'
     };
-    
     const titleEl = document.getElementById('page-title');
     if (titleEl) titleEl.innerText = titles[tabId] || 'YonApp';
 
-    if(tabId === 'occupancy' && globalData) renderOccupancyChart();
+    if(tabId === 'occupancy' && globalData) {
+        setTimeout(renderOccupancyChart, 50);
+    }
     
-    // IMPORTANTE: Reinicializar iconos cada vez que cambiamos, por si hay iconos nuevos en la vista
     lucide.createIcons();
 }
 
-// --- GESTIÓN DE MODALES (Helpers) ---
+function handleRoomsClick() {
+    if (globalData) {
+        switchTab('occupancy');
+    } else {
+        switchTab('upload');
+    }
+}
 
+// --- GESTIÓN DE MODALES ---
 function toggleLoading(show) {
     const modal = document.getElementById('modal-loading');
+    if(!modal) return;
     if (show) modal.classList.remove('hidden');
     else modal.classList.add('hidden');
 }
 
 function showStatusModal(type, title, message) {
     const modal = document.getElementById('modal-status');
+    if(!modal) { alert(message); return; }
+
     const iconContainer = document.getElementById('status-icon-container');
     const icon = document.getElementById('status-icon');
     const titleEl = document.getElementById('status-title');
@@ -79,16 +85,17 @@ function showStatusModal(type, title, message) {
 }
 
 function closeStatusModal() {
-    document.getElementById('modal-status').classList.add('hidden');
+    const modal = document.getElementById('modal-status');
+    if(modal) modal.classList.add('hidden');
 }
 
 function closeDeleteModal() {
-    document.getElementById('modal-delete-confirm').classList.add('hidden');
+    const modal = document.getElementById('modal-delete-confirm');
+    if(modal) modal.classList.add('hidden');
     roomPendingDelete = null;
 }
 
-// --- LÓGICA DE CARGA (CON MODALES) ---
-
+// --- LÓGICA DE CARGA ---
 function previewFile() {
     const input = document.getElementById('excelFile');
     const display = document.getElementById('file-name-display');
@@ -103,44 +110,51 @@ async function uploadFileToBackend() {
     const formData = new FormData();
     formData.append('file', input.files[0]);
 
-    // 1. Mostrar Loading
     toggleLoading(true);
 
     try {
         const response = await fetch('/upload', { method: 'POST', body: formData });
-        const result = await response.json();
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error del Servidor (${response.status})`);
+        }
 
-        // 2. Ocultar Loading
+        const result = await response.json();
         toggleLoading(false);
 
         if (result.success) {
             globalData = result.data;
-            updateDashboard(globalData);
             
-            sortDirection = 'asc';
-            if(document.getElementById('filter-category')) document.getElementById('filter-category').value = 'all';
-            applyFiltersAndSort(); 
-            
-            populateRoomSelector(globalData.stats);
-            
-            // 3. Mostrar Modal Éxito
-            showStatusModal('success', '¡Carga Exitosa!', 'El archivo Excel se ha procesado y los datos están listos.');
-            
-            switchTab('occupancy');
-            renderOccupancyChart();
+            try {
+                updateDashboard(globalData);
+                sortDirection = 'asc';
+                if(document.getElementById('filter-category')) document.getElementById('filter-category').value = 'all';
+                applyFiltersAndSort(); 
+                populateRoomSelector(globalData.stats);
+                
+                showStatusModal('success', '¡Carga Exitosa!', 'El archivo se procesó correctamente.');
+                switchTab('occupancy');
+                setTimeout(renderOccupancyChart, 100);
+
+            } catch (uiError) {
+                console.error("Error Renderizando UI:", uiError);
+            }
+
         } else {
-            // 3. Mostrar Modal Error
-            showStatusModal('error', 'Error de Carga', result.error || 'Hubo un problema al procesar el archivo.');
+            showStatusModal('error', 'Error de Datos', result.error || 'Problema al leer el archivo.');
         }
+
     } catch (error) {
         toggleLoading(false);
-        console.error(error);
-        showStatusModal('error', 'Error de Servidor', 'No se pudo conectar con el backend Flask.');
+        console.error("Error Fatal:", error);
+        let msg = error.message || 'No se pudo conectar con el backend.';
+        if(msg.includes('<html')) msg = 'Error interno del servidor (500). Revisa la consola.';
+        showStatusModal('error', 'Error de Conexión', msg);
     }
 }
 
-// --- GESTIÓN DE SALAS (AÑADIR / ELIMINAR) ---
-
+// --- GESTIÓN DE SALAS ---
 function toggleAddRoomModal(show) {
     const modal = document.getElementById('modal-add-room');
     if (!modal) return;
@@ -169,48 +183,33 @@ async function submitNewRoom() {
         if(json.success) {
             toggleAddRoomModal(false);
             document.getElementById('input-room-name').value = '';
-            // Usamos el modal bonito también aquí
-            showStatusModal('success', 'Sala Creada', 'La sala se añadió correctamente. Recuerda volver a procesar un Excel si quieres ver datos en ella.');
+            showStatusModal('success', 'Sala Creada', 'La sala se añadió correctamente.');
         } else {
             showStatusModal('error', 'Error', json.error);
         }
     } catch(e) { showStatusModal('error', 'Error', 'Error de conexión'); }
 }
 
-// --- LÓGICA DE BORRADO (CON MODAL) ---
-
 function deleteRoom(roomName) {
-    // 1. Guardar el nombre en variable global
     roomPendingDelete = roomName;
-    
-    // 2. Actualizar texto del modal
     document.getElementById('delete-room-name').innerText = roomName;
-    
-    // 3. Mostrar modal
     document.getElementById('modal-delete-confirm').classList.remove('hidden');
 }
 
 async function confirmDeleteRoom() {
     if (!roomPendingDelete) return;
-
     try {
         const res = await fetch('/delete_room', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ room_name: roomPendingDelete })
         });
         const json = await res.json();
-        
-        closeDeleteModal(); // Cerrar confirmación
-
+        closeDeleteModal();
         if(json.success) {
-            // Éxito
             globalData.stats = globalData.stats.filter(r => r.sala !== roomPendingDelete);
             applyFiltersAndSort();
             renderOccupancyChart();
             populateRoomSelector(globalData.stats);
-            
-            // Opcional: Feedback visual rápido o modal pequeño
-            // showStatusModal('success', 'Eliminada', 'La sala ha sido eliminada.'); 
         } else { 
             showStatusModal('error', 'Error', json.error);
         }
@@ -220,95 +219,21 @@ async function confirmDeleteRoom() {
     }
 }
 
-// --- BUSCADOR ---
-function searchRooms() {
-    if (!globalData) {
-        showStatusModal('error', 'Sin Datos', 'Primero debes subir un archivo Excel.');
-        return;
-    }
-
-    const selectedDay = document.getElementById('find-day').value; 
-    const mod = parseInt(document.getElementById('find-mod').value);
-    const cat = document.getElementById('find-cat').value;
-
-    const allDays = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
-    const daysToCheck = (selectedDay === 'any') ? allDays : [selectedDay];
-
-    let availableRooms = globalData.stats.filter(room => {
-        if (cat !== 'all' && room.categoria !== cat) return false;
-        const isFreeInAtLeastOneDay = daysToCheck.some(day => {
-            const hasClass = globalData.schedule.find(c => c.ubicacion === room.sala && c.dia_norm === day && c.modulo === mod);
-            return !hasClass; 
-        });
-        return isFreeInAtLeastOneDay;
-    });
-
-    const container = document.getElementById('finder-results');
-    const tbody = document.getElementById('finder-table-body');
-    const countLabel = document.getElementById('finder-count');
-    
-    tbody.innerHTML = '';
-    container.classList.remove('hidden');
-    countLabel.innerText = `${availableRooms.length} encontrados`;
-
-    if (availableRooms.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">No hay salas disponibles con esos criterios.</td></tr>`;
-        return;
-    }
-
-    availableRooms.forEach(room => {
-        let dayToHighlight = selectedDay;
-        if (dayToHighlight === 'any') {
-            dayToHighlight = allDays.find(day => {
-                const hasClass = globalData.schedule.find(c => c.ubicacion === room.sala && c.dia_norm === day && c.modulo === mod);
-                return !hasClass;
-            });
-        }
-
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50 transition";
-        tr.innerHTML = `
-            <td class="px-6 py-3 font-bold text-slate-700">${room.sala}</td>
-            <td class="px-6 py-3"><span class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">${room.categoria}</span></td>
-            <td class="px-6 py-3 text-slate-500">${room.capacidad_max}</td>
-            <td class="px-6 py-3 text-right">
-                <button onclick="viewRoomSchedule('${room.sala}', '${dayToHighlight}', ${mod})" class="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded shadow-sm transition flex items-center gap-1 ml-auto">
-                    Ver Disponibilidad
-                    ${selectedDay === 'any' ? `<span class="text-[10px] opacity-75">(${dayToHighlight})</span>` : ''}
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function viewRoomSchedule(roomName, highlightDay = null, highlightMod = null) {
-    switchTab('timetable');
-    const selector = document.getElementById('room-selector');
-    if (selector) {
-        selector.value = roomName;
-        if(highlightDay && highlightMod) {
-            currentHighlight = { day: highlightDay, mod: highlightMod };
-        } else {
-            currentHighlight = null;
-        }
-        renderTimetable(roomName);
-    }
-}
-
-// --- ORDENAMIENTO Y TABLAS ---
-
+// --- BUSCADOR Y FILTROS ---
 function toggleSortDirection() {
     sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
     const btn = document.getElementById('sort-dir-btn');
-    const isAlpha = document.getElementById('sort-criteria').value === 'alpha';
-    btn.innerHTML = '';
-    const iconName = isAlpha ? (sortDirection === 'asc' ? 'arrow-up-a-z' : 'arrow-down-z-a') : (sortDirection === 'asc' ? 'arrow-up-0-1' : 'arrow-down-1-0');
-    const i = document.createElement('i');
-    i.setAttribute('data-lucide', iconName);
-    i.className = "w-4 h-4";
-    btn.appendChild(i);
-    lucide.createIcons();
+    if(btn) {
+        btn.innerHTML = '';
+        const iconName = (document.getElementById('sort-criteria').value === 'alpha') 
+            ? (sortDirection === 'asc' ? 'arrow-up-a-z' : 'arrow-down-z-a') 
+            : (sortDirection === 'asc' ? 'arrow-up-0-1' : 'arrow-down-1-0');
+        const i = document.createElement('i');
+        i.setAttribute('data-lucide', iconName);
+        i.className = "w-4 h-4";
+        btn.appendChild(i);
+        lucide.createIcons();
+    }
     applyFiltersAndSort();
 }
 
@@ -319,6 +244,7 @@ function applyFiltersAndSort() {
     let processedStats = [...globalData.stats]; 
     const catFilter = document.getElementById('filter-category').value;
     if (catFilter !== 'all') processedStats = processedStats.filter(r => r.categoria === catFilter);
+    
     const criteria = document.getElementById('sort-criteria').value;
     const multiplier = sortDirection === 'asc' ? 1 : -1;
 
@@ -328,12 +254,6 @@ function applyFiltersAndSort() {
         else if (criteria === 'capacity') return multiplier * (a.capacidad_max - b.capacidad_max);
     });
     updateOccupancyTable(processedStats);
-}
-
-function updateDashboard(data) {
-    document.getElementById('stat-total-courses').innerText = data.total_courses;
-    document.getElementById('stat-total-rooms').innerText = data.total_rooms;
-    document.getElementById('empty-state').classList.add('hidden');
 }
 
 function updateOccupancyTable(stats) {
@@ -362,18 +282,64 @@ function updateOccupancyTable(stats) {
     lucide.createIcons();
 }
 
-function populateRoomSelector(stats) {
-    const selector = document.getElementById('room-selector');
-    if(!selector) return;
-    selector.innerHTML = '<option value="">-- Seleccione una Sala --</option>';
-    stats.forEach(room => {
-        const option = document.createElement('option');
-        option.value = room.sala;
-        option.innerText = room.sala;
-        selector.appendChild(option);
+function searchRooms() {
+    if (!globalData) {
+        showStatusModal('error', 'Sin Datos', 'Primero debes subir un archivo Excel.');
+        return;
+    }
+    const selectedDay = document.getElementById('find-day').value; 
+    const mod = parseInt(document.getElementById('find-mod').value);
+    const cat = document.getElementById('find-cat').value;
+    const allDays = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+    const daysToCheck = (selectedDay === 'any') ? allDays : [selectedDay];
+
+    let availableRooms = globalData.stats.filter(room => {
+        if (cat !== 'all' && room.categoria !== cat) return false;
+        // Verificar si está libre en AL MENOS UNO de los días seleccionados
+        return daysToCheck.some(day => !globalData.schedule.find(c => c.ubicacion === room.sala && c.dia_norm === day && c.modulo === mod));
+    });
+
+    const container = document.getElementById('finder-results');
+    const tbody = document.getElementById('finder-table-body');
+    const countLabel = document.getElementById('finder-count');
+    tbody.innerHTML = '';
+    container.classList.remove('hidden');
+    countLabel.innerText = `${availableRooms.length} encontrados`;
+
+    if (availableRooms.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">No hay salas disponibles.</td></tr>`;
+        return;
+    }
+
+    availableRooms.forEach(room => {
+        let dayToHighlight = selectedDay === 'any' ? allDays.find(day => !globalData.schedule.find(c => c.ubicacion === room.sala && c.dia_norm === day && c.modulo === mod)) : selectedDay;
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition";
+        tr.innerHTML = `
+            <td class="px-6 py-3 font-bold text-slate-700">${room.sala}</td>
+            <td class="px-6 py-3 text-xs">${room.categoria}</td>
+            <td class="px-6 py-3 text-slate-500">${room.capacidad_max}</td>
+            <td class="px-6 py-3 text-right">
+                <button onclick="viewRoomSchedule('${room.sala}', '${dayToHighlight}', ${mod})" class="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded shadow-sm transition flex items-center gap-1 ml-auto">
+                    Ver Disponibilidad ${selectedDay === 'any' ? `<span class="opacity-75 text-[10px]">(${dayToHighlight})</span>` : ''}
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
     });
 }
 
+function viewRoomSchedule(roomName, highlightDay, highlightMod) {
+    switchTab('timetable');
+    const selector = document.getElementById('room-selector');
+    if (selector) {
+        selector.value = roomName;
+        currentHighlight = (highlightDay && highlightMod) ? { day: highlightDay, mod: highlightMod } : null;
+        renderTimetable(roomName);
+    }
+}
+
+// --- RENDERIZADO DE HORARIO ---
 function renderTimetable(salaName) {
     if (!salaName || !globalData) return;
     const days = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
@@ -399,83 +365,140 @@ function renderTimetable(salaName) {
         const cell = document.getElementById(cellId);
         if (cell) {
             cell.classList.remove('bg-green-50', 'ring-2', 'ring-green-500', 'ring-inset');
-            cell.innerHTML = `<div class="bg-blue-100 border-l-4 border-blue-600 p-1.5 rounded text-xs shadow-sm h-full overflow-hidden flex flex-col justify-center items-center text-center"><div class="font-bold text-blue-900 truncate w-full" title="NRC: ${cls.nrc} Sec: ${cls.seccion}">NRC ${cls.nrc} – ${cls.seccion}</div></div>`;
+            // --- RESTAURADO: FORMATO "NRC - SECCIÓN" ---
+            const clsString = encodeURIComponent(JSON.stringify(cls));
+            cell.innerHTML = `
+                <div onclick="openDetailsPanel('${clsString}')" class="bg-blue-100 border-l-4 border-blue-600 p-1.5 rounded text-xs shadow-sm h-full overflow-hidden flex flex-col justify-center items-center text-center cursor-pointer hover:bg-blue-200 transition-colors group">
+                    <div class="font-bold text-blue-900 truncate w-full group-hover:scale-105 transition-transform" title="NRC: ${cls.nrc} Sec: ${cls.seccion}">
+                        NRC ${cls.nrc} – ${cls.seccion}
+                    </div>
+                </div>
+            `;
         }
+    });
+}
+
+function openDetailsPanel(encodedCls) {
+    const cls = JSON.parse(decodeURIComponent(encodedCls));
+    const panel = document.getElementById('details-panel');
+    const content = document.getElementById('details-content');
+
+    content.innerHTML = `
+        <div class="space-y-3">
+            <div>
+                <label class="block text-xs font-bold text-slate-400 uppercase">Asignatura</label>
+                <p class="text-slate-800 font-semibold">${cls.materia}</p>
+                <p class="text-xs text-slate-500">${cls.codigo_materia || ''}</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase">NRC</label>
+                    <p class="text-slate-800">${cls.nrc}</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase">Sección</label>
+                    <p class="text-slate-800">${cls.seccion}</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase">Curso</label>
+                    <p class="text-slate-800">${cls.n_curso}</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase">Componente</label>
+                    <p class="text-slate-800">${cls.componente}</p>
+                </div>
+            </div>
+            <div class="border-t border-slate-100 pt-3">
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Docente</label>
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600"><i data-lucide="user" class="w-4 h-4"></i></div>
+                    <p class="text-slate-800 text-sm">${cls.profesor}</p>
+                </div>
+            </div>
+            <div class="border-t border-slate-100 pt-3">
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Duración</label>
+                <div class="bg-slate-50 p-2 rounded text-xs text-slate-600 flex justify-between">
+                    <span>${cls.fecha_ini}</span><i data-lucide="arrow-right" class="w-3 h-3 self-center"></i><span>${cls.fecha_term}</span>
+                </div>
+            </div>
+        </div>
+    `;
+    lucide.createIcons();
+    panel.classList.remove('w-0', 'opacity-0', 'translate-x-full');
+    panel.classList.add('w-auto', 'opacity-100', 'translate-x-0');
+}
+
+function closeDetailsPanel() {
+    const panel = document.getElementById('details-panel');
+    if(panel) {
+        panel.classList.add('w-0', 'opacity-0', 'translate-x-full');
+        panel.classList.remove('w-auto', 'opacity-100', 'translate-x-0');
+    }
+}
+
+function updateDashboard(data) {
+    if(document.getElementById('stat-total-courses')) document.getElementById('stat-total-courses').innerText = data.total_courses;
+    if(document.getElementById('stat-total-rooms')) document.getElementById('stat-total-rooms').innerText = data.total_rooms;
+    if(document.getElementById('empty-state')) document.getElementById('empty-state').classList.add('hidden');
+}
+
+function populateRoomSelector(stats) {
+    const selector = document.getElementById('room-selector');
+    if(!selector) return;
+    selector.innerHTML = '<option value="">-- Seleccione una Sala --</option>';
+    stats.forEach(room => {
+        const option = document.createElement('option');
+        option.value = room.sala;
+        option.innerText = room.sala;
+        selector.appendChild(option);
     });
 }
 
 let chartInstance = null;
 function renderOccupancyChart() {
-    const ctx = document.getElementById('occupancyChart').getContext('2d');
+    const ctxEl = document.getElementById('occupancyChart');
+    if(!ctxEl) return; 
+    const ctx = ctxEl.getContext('2d');
+    
     if (chartInstance) chartInstance.destroy();
+
     let saturadas = globalData.stats.filter(s => s.status_text === 'Saturada').length;
     let normal = globalData.stats.filter(s => s.status_text === 'Normal').length;
     let libres = globalData.stats.filter(s => s.status_text === 'Libre').length;
+
     chartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['Saturadas (≥30 blq)', 'Normal (≥15 blq)', 'Libres (<15 blq)'],
-            datasets: [{ data: [saturadas, normal, libres], backgroundColor: ['#ef4444', '#eab308', '#22c55e'], borderWidth: 0 }]
+            datasets: [{
+                data: [saturadas, normal, libres],
+                backgroundColor: ['#ef4444', '#eab308', '#22c55e'],
+                borderWidth: 0
+            }]
         }
     });
 }
 
-document.getElementById('date-display').innerText = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
-
-// ==========================================
-// EFECTO DE MÁQUINA DE ESCRIBIR (LOGIN)
-// ==========================================
-
-async function typeText(element, text, speed = 100) {
-    for (let i = 0; i < text.length; i++) {
-        element.innerText += text.charAt(i);
-        await new Promise(r => setTimeout(r, speed));
-    }
-}
-
-async function deleteText(element, speed = 50) {
-    let text = element.innerText;
-    while (text.length > 0) {
-        text = text.slice(0, -1);
-        element.innerText = text;
-        await new Promise(r => setTimeout(r, speed));
-    }
-}
-
-async function initTypewriter() {
-    const target = document.getElementById('typewriter-text');
-    if (!target) return; // Si no estamos en el login o no existe el elemento
-
-    // 1. Esperar un poco al cargar
-    await new Promise(r => setTimeout(r, 500));
-
-    // 2. Escribir "Yonathan App"
-    await typeText(target, "\"Yonathan App\"", 100);
-
-    // 3. Esperar para que se lea
-    await new Promise(r => setTimeout(r, 1000));
-
-    // 4. Borrarlo
-    await deleteText(target, 50);
-
-    // 5. Esperar un momento
-    await new Promise(r => setTimeout(r, 300));
-
-    // 6. Escribir "Your On Campus Network"
-    await typeText(target, "✨ Your on campus network ✨", 80);
-}
-
-// Ejecutar cuando el DOM esté listo
+// Init
 document.addEventListener('DOMContentLoaded', () => {
-    // Inicializar iconos
     lucide.createIcons();
-    
-    // Fecha del header
     const dateEl = document.getElementById('date-display');
-    if(dateEl) {
-        dateEl.innerText = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    if(dateEl) dateEl.innerText = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    
+    // Animación login
+    if(document.getElementById('typewriter-text')) {
+        const target = document.getElementById('typewriter-text');
+        (async () => {
+            const type = async (t) => { for(let c of t) { target.innerText += c; await new Promise(r=>setTimeout(r,100)); }};
+            const del = async () => { while(target.innerText.length > 0) { target.innerText = target.innerText.slice(0,-1); await new Promise(r=>setTimeout(r,50)); }};
+            await new Promise(r=>setTimeout(r,500));
+            await type("Yonathan App");
+            await new Promise(r=>setTimeout(r,1500));
+            await del();
+            await new Promise(r=>setTimeout(r,300));
+            await type("Your On Campus Network");
+        })();
     }
-
-    // Iniciar animación
-    initTypewriter();
 });

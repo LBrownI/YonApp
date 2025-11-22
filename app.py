@@ -8,8 +8,7 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# --- BASE DE DATOS DE SALAS (Nombre, Capacidad, Categoría) ---
-# Convertida desde tu lista proporcionada
+# --- BASE DE DATOS DE SALAS ---
 ROOM_DATABASE = {
     "A102": {"cap": 48, "cat": "Laboratorio"},
     "A210": {"cap": 30, "cat": "Sala"},
@@ -130,9 +129,21 @@ ROOM_DATABASE = {
 def normalize_columns(df):
     df.columns = df.columns.str.strip().str.lower()
     column_mapping = {
-        "nombre": "materia", "sala": "ubicacion", "carrera_reserva": "grupo",
-        "hr_inicio": "inicio", "hr_fin": "fin", "nrc": "nrc",
-        "seccion": "seccion", "sección": "seccion"
+        "nombre": "nombre_asignatura",
+        "materia": "codigo_materia",
+        "sala": "ubicacion",
+        "carrera_reserva": "grupo",
+        "hr_inicio": "inicio",
+        "hr_fin": "fin",
+        "nrc": "nrc",
+        "seccion": "seccion",
+        "sección": "seccion",
+        "n_curso": "n_curso",
+        "componente": "componente",
+        "fecha_ini": "fecha_ini",
+        "fecha_term": "fecha_term",
+        "nombre_": "prof_nombre",
+        "apellido": "prof_apellido"
     }
     df.rename(columns=column_mapping, inplace=True)
     return df
@@ -165,27 +176,43 @@ def get_affected_modules(start_str, end_str):
     except Exception:
         return []
 
+
 def calculate_occupancy_color(blocks_used):
     if blocks_used >= 30: return "ocup-high", "Saturada", "bg-red-500"
     elif blocks_used >= 15: return "ocup-med", "Normal", "bg-yellow-500"
     else: return "ocup-low", "Libre", "bg-green-500"
+
 
 def parse_schedule_row(row):
     entries = []
     days = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado"]
     inicio = str(row.get("inicio", "")).strip().replace(".0", "")
     fin = str(row.get("fin", "")).strip().replace(".0", "")
-    
-    target_modules = get_affected_modules(inicio, fin)
-    if not target_modules: return [] 
 
-    materia = str(row.get("materia", "Sin Nombre")).strip()
+    target_modules = get_affected_modules(inicio, fin)
+    if not target_modules: return []
+
+    # CORRECCIÓN: Usar los nombres mapeados en normalize_columns
+    nombre_asignatura = str(row.get("nombre_asignatura", "Sin Nombre")).strip()
     ubicacion = str(row.get("ubicacion", "Sin Sala")).strip()
     grupo = str(row.get("grupo", "General")).strip()
     nrc = str(row.get("nrc", "")).strip().replace(".0", "")
     if nrc.lower() == "nan" or nrc == "": nrc = "?"
+
     seccion = str(row.get("seccion", "")).strip()
     if seccion.lower() == "nan" or seccion == "": seccion = "?"
+
+    codigo_materia = str(row.get("codigo_materia", "")).strip()
+    n_curso = str(row.get("n_curso", "")).strip()
+    componente = str(row.get("componente", "")).strip()
+
+    fecha_ini = str(row.get("fecha_ini", "")).split(" ")[0]
+    fecha_term = str(row.get("fecha_term", "")).split(" ")[0]
+
+    prof_nombre = str(row.get("prof_nombre", "")).strip()
+    prof_apellido = str(row.get("prof_apellido", "")).strip()
+    prof_completo = f"{prof_nombre} {prof_apellido}".strip()
+    if prof_completo == "": prof_completo = "Por Asignar"
 
     for day in days:
         if day in row.index:
@@ -193,31 +220,41 @@ def parse_schedule_row(row):
             if val not in ("nan", "", "none"):
                 for mod_num in target_modules:
                     entries.append({
-                        "materia": materia, "ubicacion": ubicacion, "grupo": grupo,
-                        "nrc": nrc, "seccion": seccion, "tiempo": f"{inicio} - {fin}",
-                        "modulo": mod_num, "dia_norm": day
+                        "materia": nombre_asignatura,  # Para mostrar en el modal
+                        "codigo_materia": codigo_materia,
+                        "ubicacion": ubicacion,
+                        "grupo": grupo,
+                        "nrc": nrc,
+                        "seccion": seccion,
+                        "n_curso": n_curso,
+                        "componente": componente,
+                        "fecha_ini": fecha_ini,
+                        "fecha_term": fecha_term,
+                        "profesor": prof_completo,
+                        "tiempo": f"{inicio} - {fin}",
+                        "modulo": mod_num,
+                        "dia_norm": day
                     })
     return entries
 
+
 def process_schedule(file_path):
     try:
-        df = pd.read_excel(file_path) 
+        df = pd.read_excel(file_path)
         df = normalize_columns(df)
-        if "materia" not in df.columns or "ubicacion" not in df.columns:
+        if "nombre_asignatura" not in df.columns or "ubicacion" not in df.columns:
             return None, "Faltan columnas NOMBRE o SALA."
 
         df = df.dropna(subset=["ubicacion"])
         df = df.drop_duplicates()
 
         expanded_schedule = []
-        # Usamos una copia de la DB para inicializar contadores
         room_usage_counter = {room: 0 for room in ROOM_DATABASE.keys()}
 
         for _, row in df.iterrows():
             class_instances = parse_schedule_row(row)
             sala_excel = str(row["ubicacion"]).strip()
 
-            # Si la sala del Excel no está en nuestra DB, la añadimos con valores por defecto
             if sala_excel not in ROOM_DATABASE:
                 ROOM_DATABASE[sala_excel] = {"cap": 0, "cat": "Desconocida"}
                 room_usage_counter[sala_excel] = 0
@@ -233,25 +270,22 @@ def process_schedule(file_path):
                     expanded_schedule.append(instance)
                     room_usage_counter[sala_excel] += 1
 
-        TOTAL_WEEKLY_BLOCKS = 48 
+        TOTAL_WEEKLY_BLOCKS = 48
         room_stats = []
-        
-        # Generamos stats solo para las salas que existen en la DB (que ahora incluye las del Excel)
+
         for sala, count in room_usage_counter.items():
             percentage = (count / TOTAL_WEEKLY_BLOCKS) * 100
             css_class, status_text, dot_color = calculate_occupancy_color(count)
-            
-            # Obtenemos datos extra de la DB
             details = ROOM_DATABASE.get(sala, {"cap": 0, "cat": "Desconocida"})
 
             room_stats.append({
-                "sala": sala, 
-                "ocupados": count, 
-                "capacidad_max": details["cap"], 
-                "categoria": details["cat"],  # <--- NUEVO CAMPO
+                "sala": sala,
+                "ocupados": count,
+                "capacidad_max": details["cap"],
+                "categoria": details["cat"],
                 "porcentaje": round(percentage, 1),
-                "status_class": css_class, 
-                "status_text": status_text, 
+                "status_class": css_class,
+                "status_text": status_text,
                 "dot_color": dot_color,
             })
 
@@ -263,8 +297,10 @@ def process_schedule(file_path):
     except Exception as e:
         return None, str(e)
 
+
 @app.route("/")
 def index(): return render_template("index.html")
+
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
@@ -279,19 +315,17 @@ def upload_file():
         return jsonify({"success": True, "data": data})
     except Exception as e: return jsonify({"error": str(e)}), 500
 
+
 @app.route("/add_room", methods=["POST"])
 def add_room():
     data = request.json
     new_room = data.get("room_name")
     capacity = data.get("capacity", 30)
     category = data.get("category", "Sala")
-
     if new_room:
         clean_name = new_room.strip().upper()
         ROOM_DATABASE[clean_name] = {
-            "cap": int(capacity),
-            "cat": category
-        }
+            "cap": int(capacity), "cat": category}
         return jsonify({"success": True})
     return jsonify({"error": "Nombre inválido"}), 400
 
