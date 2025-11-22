@@ -421,3 +421,61 @@ function renderOccupancyChart() {
 }
 
 document.getElementById('date-display').innerText = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+
+// ==========================================
+// EFECTO DE MÁQUINA DE ESCRIBIR (LOGIN)
+// ==========================================
+
+async function typeText(element, text, speed = 100) {
+    for (let i = 0; i < text.length; i++) {
+        element.innerText += text.charAt(i);
+        await new Promise(r => setTimeout(r, speed));
+    }
+}
+
+async function deleteText(element, speed = 50) {
+    let text = element.innerText;
+    while (text.length > 0) {
+        text = text.slice(0, -1);
+        element.innerText = text;
+        await new Promise(r => setTimeout(r, speed));
+    }
+}
+
+async function initTypewriter() {
+    const target = document.getElementById('typewriter-text');
+    if (!target) return; // Si no estamos en el login o no existe el elemento
+
+    // 1. Esperar un poco al cargar
+    await new Promise(r => setTimeout(r, 500));
+
+    // 2. Escribir "Yonathan App"
+    await typeText(target, "\"Yonathan App\"", 100);
+
+    // 3. Esperar para que se lea
+    await new Promise(r => setTimeout(r, 1000));
+
+    // 4. Borrarlo
+    await deleteText(target, 50);
+
+    // 5. Esperar un momento
+    await new Promise(r => setTimeout(r, 300));
+
+    // 6. Escribir "Your On Campus Network"
+    await typeText(target, "✨ Your on campus network ✨", 80);
+}
+
+// Ejecutar cuando el DOM esté listo
+document.addEventListener('DOMContentLoaded', () => {
+    // Inicializar iconos
+    lucide.createIcons();
+    
+    // Fecha del header
+    const dateEl = document.getElementById('date-display');
+    if(dateEl) {
+        dateEl.innerText = new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    }
+
+    // Iniciar animación
+    initTypewriter();
+});
