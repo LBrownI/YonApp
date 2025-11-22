@@ -1,12 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>Document</title>
+    <title>YonApp</title>
     {% include 'components/head.html' %}
 </head>
 <body class="bg-slate-50 text-slate-800 h-screen overflow-hidden flex flex-col font-sans">
 
-    <!-- ================= VISTA: LOGIN ================= -->
     <div id="view-login" class="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-blue-900 to-slate-800">
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md fade-in">
             <div class="text-center mb-8">
@@ -28,24 +27,22 @@
         </div>
     </div>
 
-    <!-- ================= LAYOUT PRINCIPAL ================= -->
     <div id="main-layout" class="hidden flex-1 flex h-screen overflow-hidden">
         
-        <!-- SIDEBAR -->
         {% include 'components/sidebar.html' %}
 
-        <!-- CONTENIDO -->
         <main class="flex-1 flex flex-col bg-slate-50 h-full relative overflow-hidden">
-            <!-- Header -->
             {% include 'components/header.html' %}
 
-            <!-- Contenedor Scrolleable -->
             <div class="flex-1 overflow-y-auto p-8 relative">
                 
                 {% include 'components/views/dashboard.html' %}
                 {% include 'components/views/upload.html' %}
                 {% include 'components/views/timetable.html' %}
                 {% include 'components/views/occupancy.html' %}
+                
+                {% include 'components/views/finder.html' %}
+                
             </div>
         </main>
     </div>

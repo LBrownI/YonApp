@@ -1,7 +1,6 @@
 import os
 from flask import Flask, render_template, request, jsonify
 import pandas as pd
-import math
 
 app = Flask(__name__)
 
@@ -9,83 +8,150 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# --- CONFIGURACIÓN: SALAS FIJAS ---
-DEFAULT_ROOMS = [
-    "A101", "A102", "A103", "A105", "A106", "A107", "A108", "A109", "A201", "A202", "A203", "A204", "A205", "A206", "A207",
-    "A208", "A209", "A210", "A301", "A302", "A302B", "A302C", "A303", "A304", "A305", "A306", "A307", "A308", "A309", "A311",
-    "A312", "A313", "A314", "B102", "B103", "B104", "B201", "B202", "B203", "B204", "B205", "D104", "D105", "D106", "D107",
-    "D108", "D109", "D110", "D201", "F101", "F103", "F104", "F201", "G101", "G102", "G103", "G104", "G105", "G106", "G107", "I101A",
-    "I101B", "I102", "I104", "I105", "I105-B", "I106", "I108", "I201", "I202", "I204", "I206", "I210", "J101", "J102", "J201", "P101",
-    "P102", "P103", "P104", "P202A", "P203A", "P203B", "P204", "P205", "P206A", "P206B", "P207", "P301", "P302", "P305", "P306A", "P306B",
-    "P307", "P308", "P310", "PS01", "PS02", "PS03", "PS04", "PS05", "PS06", "PS07", "PS08", "PS09", "PS10", "PS11", "PS12", "PS13", "PS15",
-    "PS16", "PS18", "VA100", "VPS00",
-]
-
-# Variable global simple para almacenar nuevas salas añadidas en tiempo de ejecución
-dynamic_rooms = set(DEFAULT_ROOMS)
-
+# --- BASE DE DATOS DE SALAS (Nombre, Capacidad, Categoría) ---
+# Convertida desde tu lista proporcionada
+ROOM_DATABASE = {
+    "A102": {"cap": 48, "cat": "Laboratorio"},
+    "A210": {"cap": 30, "cat": "Sala"},
+    "A302": {"cap": 20, "cat": "Laboratorio"},
+    "A302B": {"cap": 10, "cat": "Laboratorio"},
+    "A302C": {"cap": 5, "cat": "Laboratorio"},
+    "A304": {"cap": 26, "cat": "Lab. Comp"},
+    "A312": {"cap": 7, "cat": "Sala"},
+    "A313": {"cap": 7, "cat": "Sala"},
+    "A314": {"cap": 7, "cat": "Sala"},
+    "B102": {"cap": 30, "cat": "Sala"},
+    "D104": {"cap": 18, "cat": "Laboratorio"},
+    "D106": {"cap": 29, "cat": "Laboratorio"},
+    "D107": {"cap": 20, "cat": "Laboratorio"},
+    "D108": {"cap": 20, "cat": "Laboratorio"},
+    "D109": {"cap": 55, "cat": "Sala"},
+    "D110": {"cap": 8, "cat": "Laboratorio"},
+    "D201": {"cap": 6, "cat": "Sala de reuniones"},
+    "F101": {"cap": 300, "cat": "Gimnasio"},
+    "F103": {"cap": 28, "cat": "Laboratorio"},
+    "F201": {"cap": 42, "cat": "Sala"},
+    "G105": {"cap": 40, "cat": "Taller"},
+    "I101A": {"cap": 15, "cat": "Sala"},
+    "I101B": {"cap": 15, "cat": "Sala"},
+    "I104": {"cap": 50, "cat": "Sala"},
+    "I105": {"cap": 20, "cat": "Laboratorio"},
+    "I105-B": {"cap": 10, "cat": "Laboratorio"},
+    "I106": {"cap": 50, "cat": "Sala"},
+    "I108": {"cap": 50, "cat": "Sala"},
+    "I202": {"cap": 15, "cat": "Sala"},
+    "I204": {"cap": 15, "cat": "Sala"},
+    "I206": {"cap": 15, "cat": "Sala"},
+    "I210": {"cap": 15, "cat": "Sala"},
+    "J101": {"cap": 83, "cat": "Sala"},
+    "J102": {"cap": 30, "cat": "Laboratorio"},
+    "J201": {"cap": 30, "cat": "Sala"},
+    "P203A": {"cap": 21, "cat": "Sala"},
+    "P203B": {"cap": 21, "cat": "Sala"},
+    "P206A": {"cap": 21, "cat": "Sala"},
+    "P206B": {"cap": 21, "cat": "Sala"},
+    "P306A": {"cap": 21, "cat": "Sala"},
+    "P306B": {"cap": 21, "cat": "Sala"},
+    "P307": {"cap": 39, "cat": "Sala Espejo"},
+    "P310": {"cap": 10, "cat": "Sala de reuniones"},
+    "PS01": {"cap": 8, "cat": "Hospital de Simulación"},
+    "PS02": {"cap": 7, "cat": "Hospital de Simulación"},
+    "PS03": {"cap": 8, "cat": "Hospital de Simulación"},
+    "PS04": {"cap": 7, "cat": "Hospital de Simulación"},
+    "PS05": {"cap": 8, "cat": "Hospital de Simulación"},
+    "PS06": {"cap": 7, "cat": "Hospital de Simulación"},
+    "PS07": {"cap": 12, "cat": "Hospital de Simulación"},
+    "PS08": {"cap": 12, "cat": "Hospital de Simulación"},
+    "PS09": {"cap": 12, "cat": "Hospital de Simulación"},
+    "PS10": {"cap": 12, "cat": "Hospital de Simulación"},
+    "PS11": {"cap": 12, "cat": "Hospital de Simulación"},
+    "PS12": {"cap": 12, "cat": "Hospital de Simulación"},
+    "PS13": {"cap": 12, "cat": "Hospital de Simulación"},
+    "PS15": {"cap": 12, "cat": "Hospital de Simulación"},
+    "PS16": {"cap": 12, "cat": "Hospital de Simulación"},
+    "PS18": {"cap": 10, "cat": "Hospital de Simulación"},
+    "VPS00": {"cap": 13, "cat": "Sala Virtual"},
+    "A201": {"cap": 25, "cat": "Sala"},
+    "A307": {"cap": 59, "cat": "Sala"},
+    "B103": {"cap": 56, "cat": "Sala"},
+    "P207": {"cap": 60, "cat": "Sala"},
+    "A305": {"cap": 54, "cat": "Sala"},
+    "I201": {"cap": 30, "cat": "Laboratorio"},
+    "A308": {"cap": 30, "cat": "Laboratorio"},
+    "B104": {"cap": 46, "cat": "Sala"},
+    "P302": {"cap": 84, "cat": "Sala"},
+    "VA100": {"cap": 1000, "cat": "Sala Virtual"},
+    "P103": {"cap": 106, "cat": "Sala"},
+    "F104": {"cap": 30, "cat": "Laboratorio"},
+    "G106": {"cap": 18, "cat": "Taller"},
+    "P308": {"cap": 57, "cat": "Sala"},
+    "A205": {"cap": 87, "cat": "Sala"},
+    "P205": {"cap": 63, "cat": "Sala"},
+    "A206": {"cap": 52, "cat": "Sala"},
+    "A303": {"cap": 51, "cat": "Sala"},
+    "I102": {"cap": 50, "cat": "Sala"},
+    "A101": {"cap": 75, "cat": "Taller"},
+    "A207": {"cap": 83, "cat": "Sala"},
+    "A306": {"cap": 31, "cat": "Lab. Comp"},
+    "P305": {"cap": 46, "cat": "Sala"},
+    "A108": {"cap": 58, "cat": "Sala"},
+    "G104": {"cap": 38, "cat": "Taller"},
+    "P202A": {"cap": 40, "cat": "Sala"},
+    "P301": {"cap": 82, "cat": "Sala"},
+    "D105": {"cap": 27, "cat": "Laboratorio"},
+    "A203": {"cap": 42, "cat": "Sala"},
+    "A209": {"cap": 88, "cat": "Sala"},
+    "B203": {"cap": 30, "cat": "Laboratorio"},
+    "P204": {"cap": 40, "cat": "Sala"},
+    "A204": {"cap": 83, "cat": "Sala"},
+    "G103": {"cap": 60, "cat": "Taller"},
+    "A103": {"cap": 64, "cat": "Sala"},
+    "A107": {"cap": 67, "cat": "Sala"},
+    "A208": {"cap": 80, "cat": "Sala"},
+    "P101": {"cap": 55, "cat": "Sala"},
+    "A105": {"cap": 54, "cat": "Sala"},
+    "A109": {"cap": 84, "cat": "Sala"},
+    "B201": {"cap": 30, "cat": "Laboratorio"},
+    "B205": {"cap": 30, "cat": "Laboratorio"},
+    "A309": {"cap": 35, "cat": "Lab. Comp"},
+    "P104": {"cap": 96, "cat": "Sala"},
+    "A202": {"cap": 48, "cat": "Sala"},
+    "G107": {"cap": 8, "cat": "Taller"},
+    "G101": {"cap": 69, "cat": "Taller"},
+    "G102": {"cap": 71, "cat": "Taller"},
+    "A311": {"cap": 67, "cat": "Sala"},
+    "B202": {"cap": 30, "cat": "Laboratorio"},
+    "P102": {"cap": 43, "cat": "Sala"},
+    "A106": {"cap": 82, "cat": "Sala"},
+    "A301": {"cap": 34, "cat": "Lab. Comp"},
+    "B204": {"cap": 30, "cat": "Laboratorio"}
+}
 
 def normalize_columns(df):
     df.columns = df.columns.str.strip().str.lower()
-    # Agregamos 'nrc' y 'seccion' al mapa
     column_mapping = {
-        "nombre": "materia",
-        "sala": "ubicacion",
-        "carrera_reserva": "grupo",
-        "hr_inicio": "inicio",
-        "hr_fin": "fin",
-        "nrc": "nrc",           # <--- NUEVO
-        "seccion": "seccion",   # <--- NUEVO
-        "sección": "seccion"    # <--- Por si viene con tilde
+        "nombre": "materia", "sala": "ubicacion", "carrera_reserva": "grupo",
+        "hr_inicio": "inicio", "hr_fin": "fin", "nrc": "nrc",
+        "seccion": "seccion", "sección": "seccion"
     }
     df.rename(columns=column_mapping, inplace=True)
     return df
 
-
 def get_affected_modules(start_str, end_str):
-    """
-    Devuelve una lista de los módulos afectados.
-    """
     try:
-        # Limpieza agresiva: str(), .strip(), quitar .0, quitar :
         s_raw = str(start_str).strip().replace(".0", "")
         e_raw = str(end_str).strip().replace(".0", "")
-        
-        # Convertir "08:00" -> "0800" y luego a entero 800
         s_clean = s_raw.replace(":", "")[:4]
         e_clean = e_raw.replace(":", "")[:4]
-        
         start_val = int(s_clean)
         end_val = int(e_clean)
 
-        # --- CASOS DE BLOQUES DOBLES ---
-        # Agregué un margen de error pequeño por si el Excel dice 10:39 o 10:41
-        # 08:00 (800) a 10:40 (1040) -> M1 y M2
-        if start_val == 800 and (1035 <= end_val <= 1045): 
-            print(f">> Bloque Doble Detectado: {start_val} - {end_val}")
-            return [1, 2]
-        
-        # 09:30 (930) a 12:10 (1210) -> M2 y M3
-        if start_val == 930 and (1205 <= end_val <= 1215): 
-            print(f">> Bloque Doble Detectado: {start_val} - {end_val}")
-            return [2, 3]
-        
-        # 11:00 (1100) a 13:40 (1340) -> M3 y M4
-        if start_val == 1100 and (1335 <= end_val <= 1345): 
-            print(f">> Bloque Doble Detectado: {start_val} - {end_val}")
-            return [3, 4]
-        
-        # 14:00 (1400) a 16:40 (1640) -> M5 y M6
-        if start_val == 1400 and (1635 <= end_val <= 1645): 
-            print(f">> Bloque Doble Detectado: {start_val} - {end_val}")
-            return [5, 6]
-        
-        # 17:00 (1700) a 19:40 (1940) -> M7 y M8
-        if start_val == 1700 and (1935 <= end_val <= 1945): 
-            print(f">> Bloque Doble Detectado: {start_val} - {end_val}")
-            return [7, 8]
+        if start_val == 800 and (1035 <= end_val <= 1045): return [1, 2]
+        if start_val == 930 and (1205 <= end_val <= 1215): return [2, 3]
+        if start_val == 1100 and (1335 <= end_val <= 1345): return [3, 4]
+        if start_val == 1400 and (1635 <= end_val <= 1645): return [5, 6]
+        if start_val == 1700 and (1935 <= end_val <= 1945): return [7, 8]
 
-        # --- CASOS DE BLOQUES SIMPLES (Fallback) ---
         affected = []
         if 800 <= start_val <= 925: affected.append(1)
         elif 930 <= start_val <= 1055: affected.append(2)
@@ -95,47 +161,29 @@ def get_affected_modules(start_str, end_str):
         elif 1530 <= start_val <= 1655: affected.append(6)
         elif 1700 <= start_val <= 1825: affected.append(7)
         elif 1830 <= start_val <= 2000: affected.append(8)
-
         return affected
-
-    except Exception as e:
-        # print(f"Error parseando hora: {start_str} - {end_str} | {e}")
+    except Exception:
         return []
 
-
 def calculate_occupancy_color(blocks_used):
-    """Definir estado basado en cantidad de bloques, no porcentaje"""
-    # Regla: Desde 30 bloques (inclusive) -> Saturada
-    if blocks_used >= 30:
-        return "ocup-high", "Saturada", "bg-red-500"
-    # Regla: Desde 15 bloques (inclusive) -> Normal
-    elif blocks_used >= 15:
-        return "ocup-med", "Normal", "bg-yellow-500"
-    # Regla: 14 hacia abajo -> Libre
-    else:
-        return "ocup-low", "Libre", "bg-green-500"
-
+    if blocks_used >= 30: return "ocup-high", "Saturada", "bg-red-500"
+    elif blocks_used >= 15: return "ocup-med", "Normal", "bg-yellow-500"
+    else: return "ocup-low", "Libre", "bg-green-500"
 
 def parse_schedule_row(row):
     entries = []
     days = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado"]
-
-    # Limpieza robusta de strings
     inicio = str(row.get("inicio", "")).strip().replace(".0", "")
     fin = str(row.get("fin", "")).strip().replace(".0", "")
     
     target_modules = get_affected_modules(inicio, fin)
-
-    if not target_modules: 
-        return [] 
+    if not target_modules: return [] 
 
     materia = str(row.get("materia", "Sin Nombre")).strip()
     ubicacion = str(row.get("ubicacion", "Sin Sala")).strip()
     grupo = str(row.get("grupo", "General")).strip()
-    
     nrc = str(row.get("nrc", "")).strip().replace(".0", "")
     if nrc.lower() == "nan" or nrc == "": nrc = "?"
-    
     seccion = str(row.get("seccion", "")).strip()
     if seccion.lower() == "nan" or seccion == "": seccion = "?"
 
@@ -145,136 +193,115 @@ def parse_schedule_row(row):
             if val not in ("nan", "", "none"):
                 for mod_num in target_modules:
                     entries.append({
-                        "materia": materia,
-                        "ubicacion": ubicacion,
-                        "grupo": grupo,
-                        "nrc": nrc,
-                        "seccion": seccion,
-                        "tiempo": f"{inicio} - {fin}",
-                        "modulo": mod_num,
-                        "dia_norm": day
+                        "materia": materia, "ubicacion": ubicacion, "grupo": grupo,
+                        "nrc": nrc, "seccion": seccion, "tiempo": f"{inicio} - {fin}",
+                        "modulo": mod_num, "dia_norm": day
                     })
     return entries
 
 def process_schedule(file_path):
     try:
-        # CAMBIO IMPORTANTE: Quitamos engine="openpyxl" para que detecte automático
-        # esto evita errores con archivos .xls antiguos
         df = pd.read_excel(file_path) 
         df = normalize_columns(df)
-
         if "materia" not in df.columns or "ubicacion" not in df.columns:
             return None, "Faltan columnas NOMBRE o SALA."
 
         df = df.dropna(subset=["ubicacion"])
-
-        # Eliminamos duplicados exactos de fila en el Excel original
         df = df.drop_duplicates()
 
         expanded_schedule = []
-        room_usage_counter = {room: 0 for room in dynamic_rooms}
+        # Usamos una copia de la DB para inicializar contadores
+        room_usage_counter = {room: 0 for room in ROOM_DATABASE.keys()}
 
         for _, row in df.iterrows():
             class_instances = parse_schedule_row(row)
             sala_excel = str(row["ubicacion"]).strip()
 
-            if sala_excel not in room_usage_counter:
+            # Si la sala del Excel no está en nuestra DB, la añadimos con valores por defecto
+            if sala_excel not in ROOM_DATABASE:
+                ROOM_DATABASE[sala_excel] = {"cap": 0, "cat": "Desconocida"}
                 room_usage_counter[sala_excel] = 0
-                dynamic_rooms.add(sala_excel)
 
             for instance in class_instances:
-                # Chequeo de colisiones:
-                # Si ya existe una clase en esa Sala + Dia + Modulo, ignoramos la nueva.
-                # Esto maneja la duplicidad que mencionaste.
                 is_duplicate = False
                 for existing in expanded_schedule:
-                    if (existing["ubicacion"] == sala_excel
-                        and existing["dia_norm"] == instance["dia_norm"]
-                        and existing["modulo"] == instance["modulo"]):
+                    if (existing["ubicacion"] == sala_excel and existing["dia_norm"] == instance["dia_norm"] and existing["modulo"] == instance["modulo"]):
                         is_duplicate = True
                         break
-                
                 if not is_duplicate:
                     instance["ubicacion"] = sala_excel
                     expanded_schedule.append(instance)
                     room_usage_counter[sala_excel] += 1
 
-        # Generar Estadísticas
         TOTAL_WEEKLY_BLOCKS = 48 
         room_stats = []
-
+        
+        # Generamos stats solo para las salas que existen en la DB (que ahora incluye las del Excel)
         for sala, count in room_usage_counter.items():
             percentage = (count / TOTAL_WEEKLY_BLOCKS) * 100
-            
-            # --- CORRECCIÓN AQUÍ ---
-            # Antes pasabas 'percentage', ahora pasamos 'count' (número de bloques)
             css_class, status_text, dot_color = calculate_occupancy_color(count)
+            
+            # Obtenemos datos extra de la DB
+            details = ROOM_DATABASE.get(sala, {"cap": 0, "cat": "Desconocida"})
 
             room_stats.append({
-                "sala": sala,
-                "ocupados": count,
-                "capacidad_max": 30, 
+                "sala": sala, 
+                "ocupados": count, 
+                "capacidad_max": details["cap"], 
+                "categoria": details["cat"],  # <--- NUEVO CAMPO
                 "porcentaje": round(percentage, 1),
-                "status_class": css_class,
-                "status_text": status_text,
+                "status_class": css_class, 
+                "status_text": status_text, 
                 "dot_color": dot_color,
             })
 
         room_stats.sort(key=lambda x: x["sala"])
-
         return {
-            "stats": room_stats,
-            "schedule": expanded_schedule,
-            "total_rooms": len(room_stats),
-            "total_courses": len(expanded_schedule),
+            "stats": room_stats, "schedule": expanded_schedule,
+            "total_rooms": len(room_stats), "total_courses": len(expanded_schedule),
         }, None
-
     except Exception as e:
-        print(f"Error Fatal: {e}")
         return None, str(e)
 
-
 @app.route("/")
-def index():
-    return render_template("index.html")
-
+def index(): return render_template("index.html")
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
-    if "file" not in request.files:
-        return jsonify({"error": "No file"}), 400
+    if "file" not in request.files: return jsonify({"error": "No file"}), 400
     file = request.files["file"]
-    if file.filename == "":
-        return jsonify({"error": "No file"}), 400
-
+    if file.filename == "": return jsonify({"error": "No file"}), 400
     try:
         filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
         file.save(filepath)
         data, error = process_schedule(filepath)
-        if error:
-            return jsonify({"error": error}), 500
+        if error: return jsonify({"error": error}), 500
         return jsonify({"success": True, "data": data})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
+    except Exception as e: return jsonify({"error": str(e)}), 500
 
 @app.route("/add_room", methods=["POST"])
 def add_room():
     data = request.json
     new_room = data.get("room_name")
+    capacity = data.get("capacity", 30)
+    category = data.get("category", "Sala")
+
     if new_room:
-        dynamic_rooms.add(new_room.strip().upper())
+        clean_name = new_room.strip().upper()
+        ROOM_DATABASE[clean_name] = {
+            "cap": int(capacity),
+            "cat": category
+        }
         return jsonify({"success": True})
     return jsonify({"error": "Nombre inválido"}), 400
 
 
-# --- NUEVA RUTA PARA BORRAR ---
 @app.route("/delete_room", methods=["POST"])
 def delete_room():
     data = request.json
     room_to_delete = data.get("room_name")
-    if room_to_delete and room_to_delete in dynamic_rooms:
-        dynamic_rooms.remove(room_to_delete)
+    if room_to_delete and room_to_delete in ROOM_DATABASE:
+        del ROOM_DATABASE[room_to_delete]
         return jsonify({"success": True})
     return jsonify({"error": "Sala no encontrada"}), 404
 
