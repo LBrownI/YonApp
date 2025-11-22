@@ -1,28 +1,47 @@
-<!DOCTYPE html>
-<section id="tab-dashboard" class="view-section space-y-6">
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-            <div class="flex justify-between items-start">
-                <div>
-                    <p class="text-slate-500 text-sm">Total de Cursos</p>
-                    <h3 id="stat-total-courses" class="text-3xl font-bold text-slate-800 mt-1">0</h3>
-                </div>
-                <div class="bg-blue-50 p-2 rounded-lg text-blue-600"><i data-lucide="book-open"></i></div>
+<section id="tab-dashboard" class="view-section space-y-8">
+    <div class="text-center space-y-2 mb-10">
+        <h2 class="text-3xl font-bold text-slate-800">Bienvenido a YonApp</h2>
+        <p class="text-slate-500">Selecciona el módulo al que deseas acceder</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        
+        <div onclick="switchTab('occupancy')" class="group bg-white p-8 rounded-2xl shadow-md border-2 border-transparent hover:border-blue-500 hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1">
+            <div class="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors">
+                <i data-lucide="door-open" class="w-10 h-10 text-blue-600 group-hover:text-white transition-colors"></i>
             </div>
+            <h3 class="text-2xl font-bold text-slate-800 mb-3">Gestión de Salas</h3>
+            <p class="text-slate-500 mb-6">
+                Visualiza la ocupación, busca horarios disponibles y administra el inventario de salas de la sede.
+            </p>
+            <span class="text-blue-600 font-semibold flex items-center gap-2 group-hover:gap-4 transition-all">
+                Ingresar <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </span>
         </div>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-            <div class="flex justify-between items-start">
-                <div>
-                    <p class="text-slate-500 text-sm">Salas Gestionadas</p>
-                    <h3 id="stat-total-rooms" class="text-3xl font-bold text-slate-800 mt-1">0</h3>
-                </div>
-                <div class="bg-green-50 p-2 rounded-lg text-green-600"><i data-lucide="door-open"></i></div>
+
+        <div onclick="switchTab('careers')" class="group bg-white p-8 rounded-2xl shadow-md border-2 border-transparent hover:border-purple-500 hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1">
+            <div class="bg-purple-50 w-20 h-20 rounded-full flex items-center justify-center mb-6 group-hover:bg-purple-600 transition-colors">
+                <i data-lucide="graduation-cap" class="w-10 h-10 text-purple-600 group-hover:text-white transition-colors"></i>
             </div>
+            <h3 class="text-2xl font-bold text-slate-800 mb-3">Gestión de Carreras</h3>
+            <p class="text-slate-500 mb-6">
+                Asigna asignaturas a carreras, gestiona mallas curriculares y proyecciones académicas.
+            </p>
+            <span class="text-purple-600 font-semibold flex items-center gap-2 group-hover:gap-4 transition-all">
+                Ingresar <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </span>
         </div>
+
     </div>
     
-    <!-- Estado Inicial -->
-    <div id="empty-state" class="text-center py-12">
-        <p class="text-slate-500">Aún no has subido ningún horario. Ve a la pestaña "Importar Excel".</p>
+    <div class="grid grid-cols-2 gap-4 max-w-2xl mx-auto mt-12 opacity-60">
+        <div class="text-center">
+            <span class="block text-2xl font-bold text-slate-700" id="stat-total-courses">0</span>
+            <span class="text-xs text-slate-500">Cursos Cargados</span>
+        </div>
+        <div class="text-center">
+            <span class="block text-2xl font-bold text-slate-700" id="stat-total-rooms">0</span>
+            <span class="text-xs text-slate-500">Salas Activas</span>
+        </div>
     </div>
 </section>

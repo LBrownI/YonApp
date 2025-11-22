@@ -2,8 +2,9 @@
 lucide.createIcons();
 let globalData = null;
 let sortDirection = 'asc'; 
-// Variable para recordar qué celda resaltar al cambiar de pestaña
 let currentHighlight = null; 
+// Variable temporal para saber qué sala borrar cuando se confirme en el modal
+let roomPendingDelete = null; 
 
 // --- LÓGICA DE INTERFAZ ---
 function handleLogin(e) {
@@ -13,11 +14,9 @@ function handleLogin(e) {
 }
 
 function switchTab(tabId) {
-    // Limpiar highlight si no vamos a timetable
-    if (tabId !== 'timetable') {
-        currentHighlight = null;
-    }
+    if (tabId !== 'timetable') currentHighlight = null;
 
+    // Manejo de botones del sidebar (Si no existe botón para 'careers', no pasa nada)
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('bg-slate-800', 'text-white');
         btn.classList.add('text-slate-300');
@@ -25,106 +24,70 @@ function switchTab(tabId) {
     const activeBtn = document.getElementById('btn-' + tabId);
     if (activeBtn) activeBtn.classList.add('bg-slate-800', 'text-white');
     
+    // Manejo de Vistas
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     const view = document.getElementById('tab-' + tabId);
     if (view) view.classList.remove('hidden');
     
+    // Títulos Dinámicos
     const titles = {
-        'dashboard': 'Dashboard General',
+        'dashboard': 'Inicio',
         'upload': 'Importación de Datos',
         'timetable': 'Visualizador de Horarios',
         'occupancy': 'Monitor de Ocupación',
-        'finder': 'Buscador de Salas'
+        'finder': 'Buscador de Salas',
+        'careers': 'Gestión de Asignaturas por Carrera' // Título nuevo
     };
-    const titleEl = document.getElementById('page-title');
-    if (titleEl) titleEl.innerText = titles[tabId] || '';
-
-    if(tabId === 'occupancy' && globalData) {
-        renderOccupancyChart();
-    }
-}
-
-// --- NUEVA LÓGICA: BUSCADOR ---
-function searchRooms() {
-    if (!globalData) {
-        alert("Primero debes subir un archivo Excel.");
-        return;
-    }
-
-    const day = document.getElementById('find-day').value; // lunes, martes...
-    const mod = parseInt(document.getElementById('find-mod').value); // 1, 2...
-    const cat = document.getElementById('find-cat').value; // all, Sala...
-
-    console.log(`Buscando: Día=${day}, Mod=${mod}, Cat=${cat}`);
-
-    // 1. Encontrar salas ocupadas en ese bloque
-    const busyRooms = globalData.schedule
-        .filter(c => c.dia_norm === day && c.modulo === mod)
-        .map(c => c.ubicacion);
-
-    // 2. Filtrar salas disponibles (stats tiene todas las salas)
-    let availableRooms = globalData.stats.filter(room => {
-        // Filtro de Categoría
-        if (cat !== 'all' && room.categoria !== cat) return false;
-        
-        // Filtro de Disponibilidad: La sala NO debe estar en la lista de ocupadas
-        return !busyRooms.includes(room.sala);
-    });
-
-    // 3. Renderizar resultados
-    const container = document.getElementById('finder-results');
-    const tbody = document.getElementById('finder-table-body');
-    const countLabel = document.getElementById('finder-count');
     
-    tbody.innerHTML = '';
-    container.classList.remove('hidden'); // Mostrar contenedor
-    countLabel.innerText = `${availableRooms.length} encontrados`;
+    const titleEl = document.getElementById('page-title');
+    if (titleEl) titleEl.innerText = titles[tabId] || 'YonApp';
 
-    if (availableRooms.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">No hay salas disponibles con esos criterios.</td></tr>`;
-        return;
-    }
-
-    availableRooms.forEach(room => {
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50 transition";
-        tr.innerHTML = `
-            <td class="px-6 py-3 font-bold text-slate-700">${room.sala}</td>
-            <td class="px-6 py-3">
-                <span class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">
-                    ${room.categoria}
-                </span>
-            </td>
-            <td class="px-6 py-3 text-slate-500">${room.capacidad_max}</td>
-            <td class="px-6 py-3 text-right">
-                <button onclick="viewRoomSchedule('${room.sala}', '${day}', ${mod})" class="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded shadow-sm transition">
-                    Ver Disponibilidad
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
+    if(tabId === 'occupancy' && globalData) renderOccupancyChart();
+    
+    // IMPORTANTE: Reinicializar iconos cada vez que cambiamos, por si hay iconos nuevos en la vista
+    lucide.createIcons();
 }
 
-// --- MODIFICADO: CLIC EN SALA CON HIGHLIGHT ---
-function viewRoomSchedule(roomName, highlightDay = null, highlightMod = null) {
-    switchTab('timetable');
-    const selector = document.getElementById('room-selector');
-    if (selector) {
-        selector.value = roomName;
-        
-        // Guardamos el highlight para renderizarlo
-        if(highlightDay && highlightMod) {
-            currentHighlight = { day: highlightDay, mod: highlightMod };
-        } else {
-            currentHighlight = null;
-        }
+// --- GESTIÓN DE MODALES (Helpers) ---
 
-        renderTimetable(roomName);
-    }
+function toggleLoading(show) {
+    const modal = document.getElementById('modal-loading');
+    if (show) modal.classList.remove('hidden');
+    else modal.classList.add('hidden');
 }
 
-// --- LÓGICA DE CARGA Y COMUNICACIÓN CON FLASK ---
+function showStatusModal(type, title, message) {
+    const modal = document.getElementById('modal-status');
+    const iconContainer = document.getElementById('status-icon-container');
+    const icon = document.getElementById('status-icon');
+    const titleEl = document.getElementById('status-title');
+    const msgEl = document.getElementById('status-message');
+
+    titleEl.innerText = title;
+    msgEl.innerText = message;
+
+    if (type === 'success') {
+        iconContainer.className = "mx-auto w-16 h-16 flex items-center justify-center rounded-full mb-4 bg-green-100 text-green-600";
+        icon.setAttribute('data-lucide', 'check');
+    } else {
+        iconContainer.className = "mx-auto w-16 h-16 flex items-center justify-center rounded-full mb-4 bg-red-100 text-red-600";
+        icon.setAttribute('data-lucide', 'x');
+    }
+    
+    lucide.createIcons();
+    modal.classList.remove('hidden');
+}
+
+function closeStatusModal() {
+    document.getElementById('modal-status').classList.add('hidden');
+}
+
+function closeDeleteModal() {
+    document.getElementById('modal-delete-confirm').classList.add('hidden');
+    roomPendingDelete = null;
+}
+
+// --- LÓGICA DE CARGA (CON MODALES) ---
 
 function previewFile() {
     const input = document.getElementById('excelFile');
@@ -140,35 +103,44 @@ async function uploadFileToBackend() {
     const formData = new FormData();
     formData.append('file', input.files[0]);
 
+    // 1. Mostrar Loading
+    toggleLoading(true);
+
     try {
         const response = await fetch('/upload', { method: 'POST', body: formData });
         const result = await response.json();
 
+        // 2. Ocultar Loading
+        toggleLoading(false);
+
         if (result.success) {
             globalData = result.data;
-            alert('¡Datos procesados correctamente!');
             updateDashboard(globalData);
             
-            // Reset filtros y orden
             sortDirection = 'asc';
-            if(document.getElementById('filter-category')) {
-                 document.getElementById('filter-category').value = 'all';
-            }
+            if(document.getElementById('filter-category')) document.getElementById('filter-category').value = 'all';
             applyFiltersAndSort(); 
             
             populateRoomSelector(globalData.stats);
+            
+            // 3. Mostrar Modal Éxito
+            showStatusModal('success', '¡Carga Exitosa!', 'El archivo Excel se ha procesado y los datos están listos.');
+            
             switchTab('occupancy');
             renderOccupancyChart();
         } else {
-            alert('Error: ' + result.error);
+            // 3. Mostrar Modal Error
+            showStatusModal('error', 'Error de Carga', result.error || 'Hubo un problema al procesar el archivo.');
         }
     } catch (error) {
+        toggleLoading(false);
         console.error(error);
-        alert('Error de conexión con el servidor Flask.');
+        showStatusModal('error', 'Error de Servidor', 'No se pudo conectar con el backend Flask.');
     }
 }
 
-// --- GESTIÓN DEL MODAL ---
+// --- GESTIÓN DE SALAS (AÑADIR / ELIMINAR) ---
+
 function toggleAddRoomModal(show) {
     const modal = document.getElementById('modal-add-room');
     if (!modal) return;
@@ -191,92 +163,172 @@ async function submitNewRoom() {
     try {
         const res = await fetch('/add_room', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-                room_name: name,
-                capacity: cap,
-                category: cat
-            })
+            body: JSON.stringify({ room_name: name, capacity: cap, category: cat })
         });
         const json = await res.json();
         if(json.success) {
-            alert("Sala creada exitosamente. Vuelve a procesar el archivo para ver los cambios en la tabla.");
             toggleAddRoomModal(false);
             document.getElementById('input-room-name').value = '';
+            // Usamos el modal bonito también aquí
+            showStatusModal('success', 'Sala Creada', 'La sala se añadió correctamente. Recuerda volver a procesar un Excel si quieres ver datos en ella.');
         } else {
-            alert("Error: " + json.error);
+            showStatusModal('error', 'Error', json.error);
         }
-    } catch(e) { alert("Error conectando con servidor"); }
+    } catch(e) { showStatusModal('error', 'Error', 'Error de conexión'); }
 }
 
-async function deleteRoom(roomName) {
-    if(!confirm(`¿Estás seguro de eliminar la sala ${roomName}?`)) return;
+// --- LÓGICA DE BORRADO (CON MODAL) ---
+
+function deleteRoom(roomName) {
+    // 1. Guardar el nombre en variable global
+    roomPendingDelete = roomName;
+    
+    // 2. Actualizar texto del modal
+    document.getElementById('delete-room-name').innerText = roomName;
+    
+    // 3. Mostrar modal
+    document.getElementById('modal-delete-confirm').classList.remove('hidden');
+}
+
+async function confirmDeleteRoom() {
+    if (!roomPendingDelete) return;
+
     try {
         const res = await fetch('/delete_room', {
             method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ room_name: roomName })
+            body: JSON.stringify({ room_name: roomPendingDelete })
         });
         const json = await res.json();
+        
+        closeDeleteModal(); // Cerrar confirmación
+
         if(json.success) {
-            globalData.stats = globalData.stats.filter(r => r.sala !== roomName);
+            // Éxito
+            globalData.stats = globalData.stats.filter(r => r.sala !== roomPendingDelete);
             applyFiltersAndSort();
             renderOccupancyChart();
             populateRoomSelector(globalData.stats);
-        } else { alert("Error: " + json.error); }
-    } catch(e) { alert("Error de conexión al eliminar."); }
+            
+            // Opcional: Feedback visual rápido o modal pequeño
+            // showStatusModal('success', 'Eliminada', 'La sala ha sido eliminada.'); 
+        } else { 
+            showStatusModal('error', 'Error', json.error);
+        }
+    } catch(e) { 
+        closeDeleteModal();
+        showStatusModal('error', 'Error', 'Error de conexión al eliminar.'); 
+    }
 }
 
-// --- LÓGICA DE FILTRADO Y ORDENAMIENTO (Ocupación) ---
+// --- BUSCADOR ---
+function searchRooms() {
+    if (!globalData) {
+        showStatusModal('error', 'Sin Datos', 'Primero debes subir un archivo Excel.');
+        return;
+    }
+
+    const selectedDay = document.getElementById('find-day').value; 
+    const mod = parseInt(document.getElementById('find-mod').value);
+    const cat = document.getElementById('find-cat').value;
+
+    const allDays = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
+    const daysToCheck = (selectedDay === 'any') ? allDays : [selectedDay];
+
+    let availableRooms = globalData.stats.filter(room => {
+        if (cat !== 'all' && room.categoria !== cat) return false;
+        const isFreeInAtLeastOneDay = daysToCheck.some(day => {
+            const hasClass = globalData.schedule.find(c => c.ubicacion === room.sala && c.dia_norm === day && c.modulo === mod);
+            return !hasClass; 
+        });
+        return isFreeInAtLeastOneDay;
+    });
+
+    const container = document.getElementById('finder-results');
+    const tbody = document.getElementById('finder-table-body');
+    const countLabel = document.getElementById('finder-count');
+    
+    tbody.innerHTML = '';
+    container.classList.remove('hidden');
+    countLabel.innerText = `${availableRooms.length} encontrados`;
+
+    if (availableRooms.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">No hay salas disponibles con esos criterios.</td></tr>`;
+        return;
+    }
+
+    availableRooms.forEach(room => {
+        let dayToHighlight = selectedDay;
+        if (dayToHighlight === 'any') {
+            dayToHighlight = allDays.find(day => {
+                const hasClass = globalData.schedule.find(c => c.ubicacion === room.sala && c.dia_norm === day && c.modulo === mod);
+                return !hasClass;
+            });
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-50 transition";
+        tr.innerHTML = `
+            <td class="px-6 py-3 font-bold text-slate-700">${room.sala}</td>
+            <td class="px-6 py-3"><span class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">${room.categoria}</span></td>
+            <td class="px-6 py-3 text-slate-500">${room.capacidad_max}</td>
+            <td class="px-6 py-3 text-right">
+                <button onclick="viewRoomSchedule('${room.sala}', '${dayToHighlight}', ${mod})" class="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded shadow-sm transition flex items-center gap-1 ml-auto">
+                    Ver Disponibilidad
+                    ${selectedDay === 'any' ? `<span class="text-[10px] opacity-75">(${dayToHighlight})</span>` : ''}
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function viewRoomSchedule(roomName, highlightDay = null, highlightMod = null) {
+    switchTab('timetable');
+    const selector = document.getElementById('room-selector');
+    if (selector) {
+        selector.value = roomName;
+        if(highlightDay && highlightMod) {
+            currentHighlight = { day: highlightDay, mod: highlightMod };
+        } else {
+            currentHighlight = null;
+        }
+        renderTimetable(roomName);
+    }
+}
+
+// --- ORDENAMIENTO Y TABLAS ---
 
 function toggleSortDirection() {
     sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-    
     const btn = document.getElementById('sort-dir-btn');
     const isAlpha = document.getElementById('sort-criteria').value === 'alpha';
     btn.innerHTML = '';
-    const iconName = isAlpha 
-        ? (sortDirection === 'asc' ? 'arrow-up-a-z' : 'arrow-down-z-a')
-        : (sortDirection === 'asc' ? 'arrow-up-0-1' : 'arrow-down-1-0');
-
+    const iconName = isAlpha ? (sortDirection === 'asc' ? 'arrow-up-a-z' : 'arrow-down-z-a') : (sortDirection === 'asc' ? 'arrow-up-0-1' : 'arrow-down-1-0');
     const i = document.createElement('i');
     i.setAttribute('data-lucide', iconName);
     i.className = "w-4 h-4";
     btn.appendChild(i);
     lucide.createIcons();
-
     applyFiltersAndSort();
 }
 
 function applyFiltersAndSort() {
-    // Esta función se usa en la pestaña Ocupación, pero debemos verificar que existan los elementos
     if (!globalData || !globalData.stats) return;
-    if (!document.getElementById('filter-category')) return; // Si estamos en otra vista que no tiene estos filtros
+    if (!document.getElementById('filter-category')) return;
 
     let processedStats = [...globalData.stats]; 
-
-    // 1. FILTRAR
     const catFilter = document.getElementById('filter-category').value;
-    if (catFilter !== 'all') {
-        processedStats = processedStats.filter(r => r.categoria === catFilter);
-    }
-
-    // 2. ORDENAR
+    if (catFilter !== 'all') processedStats = processedStats.filter(r => r.categoria === catFilter);
     const criteria = document.getElementById('sort-criteria').value;
     const multiplier = sortDirection === 'asc' ? 1 : -1;
 
     processedStats.sort((a, b) => {
-        if (criteria === 'alpha') {
-            return multiplier * a.sala.localeCompare(b.sala, undefined, {numeric: true, sensitivity: 'base'});
-        } else if (criteria === 'occupancy') {
-            return multiplier * (a.ocupados - b.ocupados);
-        } else if (criteria === 'capacity') {
-            return multiplier * (a.capacidad_max - b.capacidad_max);
-        }
+        if (criteria === 'alpha') return multiplier * a.sala.localeCompare(b.sala, undefined, {numeric: true, sensitivity: 'base'});
+        else if (criteria === 'occupancy') return multiplier * (a.ocupados - b.ocupados);
+        else if (criteria === 'capacity') return multiplier * (a.capacidad_max - b.capacidad_max);
     });
-
     updateOccupancyTable(processedStats);
 }
-
-// --- ACTUALIZACIÓN DE DOM ---
 
 function updateDashboard(data) {
     document.getElementById('stat-total-courses').innerText = data.total_courses;
@@ -294,44 +346,16 @@ function updateOccupancyTable(stats) {
         tr.className = "hover:bg-slate-50 transition group";
         tr.innerHTML = `
             <td class="px-4 py-4 text-center">
-                <button onclick="deleteRoom('${room.sala}')" class="text-slate-400 hover:text-red-500 transition p-1 rounded hover:bg-red-50" title="Eliminar Sala">
-                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                </button>
+                <button onclick="deleteRoom('${room.sala}')" class="text-slate-400 hover:text-red-500 transition p-1 rounded hover:bg-red-50" title="Eliminar Sala"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </td>
-            
             <td class="px-6 py-4 font-bold text-slate-700">
-                <button onclick="viewRoomSchedule('${room.sala}')" class="text-blue-600 hover:text-blue-800 hover:underline text-left font-bold">
-                    ${room.sala}
-                </button>
+                <button onclick="viewRoomSchedule('${room.sala}')" class="text-blue-600 hover:text-blue-800 hover:underline text-left font-bold">${room.sala}</button>
             </td>
-            
-            <td class="px-6 py-4">
-                <span class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">
-                    ${room.categoria}
-                </span>
-            </td>
+            <td class="px-6 py-4"><span class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">${room.categoria}</span></td>
             <td class="px-6 py-4 text-slate-500">${room.capacidad_max} est.</td>
-            <td class="px-6 py-4">
-                <div class="flex items-center gap-2">
-                    <span class="font-mono font-bold">${room.ocupados}</span>
-                    <span class="text-xs text-slate-400">bloques</span>
-                </div>
-            </td>
-            <td class="px-6 py-4">
-                <div class="w-full bg-slate-200 rounded-full h-2.5">
-                    <div class="${room.status_class.replace('ocup-high','bg-red-500').replace('ocup-med','bg-yellow-500').replace('ocup-low','bg-green-500')} h-2.5 rounded-full" style="width: ${room.porcentaje}%"></div>
-                </div>
-                <span class="text-xs font-bold mt-1 block text-right">${room.porcentaje}%</span>
-            </td>
-            <td class="px-6 py-4 font-bold text-xs">
-                 <span class="px-2 py-1 rounded border ${
-                     room.status_text === 'Saturada' ? 'bg-red-50 border-red-200 text-red-700' : 
-                     room.status_text === 'Normal' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 
-                     'bg-green-50 border-green-200 text-green-700'
-                 }">
-                    ${room.status_text}
-                 </span>
-            </td>
+            <td class="px-6 py-4"><div class="flex items-center gap-2"><span class="font-mono font-bold">${room.ocupados}</span><span class="text-xs text-slate-400">bloques</span></div></td>
+            <td class="px-6 py-4"><div class="w-full bg-slate-200 rounded-full h-2.5"><div class="${room.status_class.replace('ocup-high','bg-red-500').replace('ocup-med','bg-yellow-500').replace('ocup-low','bg-green-500')} h-2.5 rounded-full" style="width: ${room.porcentaje}%"></div></div><span class="text-xs font-bold mt-1 block text-right">${room.porcentaje}%</span></td>
+            <td class="px-6 py-4 font-bold text-xs"><span class="px-2 py-1 rounded border ${room.status_text === 'Saturada' ? 'bg-red-50 border-red-200 text-red-700' : room.status_text === 'Normal' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 'bg-green-50 border-green-200 text-green-700'}">${room.status_text}</span></td>
         `;
         tbody.appendChild(tr);
     });
@@ -350,53 +374,32 @@ function populateRoomSelector(stats) {
     });
 }
 
-// --- RENDERIZADO DE HORARIO (CON HIGHLIGHT) ---
 function renderTimetable(salaName) {
     if (!salaName || !globalData) return;
-
-    // 1. Limpiar cuadrícula
     const days = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
     for (let i = 1; i <= 8; i++) {
         days.forEach(day => {
             const cell = document.getElementById(`cell-${day}-${i}`);
             if (cell) {
                 cell.innerHTML = ''; 
-                // Limpiar estilo previo de highlight
                 cell.classList.remove('bg-green-50', 'ring-2', 'ring-green-500', 'ring-inset');
             }
         });
     }
-
-    // 2. Aplicar Highlight si existe (Efecto "Iluminado")
     if (currentHighlight) {
         const hlCell = document.getElementById(`cell-${currentHighlight.day}-${currentHighlight.mod}`);
         if (hlCell) {
             hlCell.classList.add('bg-green-50', 'ring-2', 'ring-green-500', 'ring-inset');
-            hlCell.innerHTML = `
-                <div class="h-full w-full flex items-center justify-center">
-                    <span class="text-green-700 font-bold text-xs bg-green-100 px-2 py-1 rounded-full border border-green-200 shadow-sm animate-pulse">
-                        DISPONIBLE
-                    </span>
-                </div>
-            `;
+            hlCell.innerHTML = `<div class="h-full w-full flex items-center justify-center"><span class="text-green-700 font-bold text-xs bg-green-100 px-2 py-1 rounded-full border border-green-200 shadow-sm animate-pulse">DISPONIBLE</span></div>`;
         }
     }
-
-    // 3. Llenar clases
     const classes = globalData.schedule.filter(c => c.ubicacion === salaName);
     classes.forEach(cls => {
         const cellId = `cell-${cls.dia_norm}-${cls.modulo}`;
         const cell = document.getElementById(cellId);
         if (cell) {
-            // Si hay clase, quitamos el highlight de disponible por seguridad
             cell.classList.remove('bg-green-50', 'ring-2', 'ring-green-500', 'ring-inset');
-            cell.innerHTML = `
-                <div class="bg-blue-100 border-l-4 border-blue-600 p-1.5 rounded text-xs shadow-sm h-full overflow-hidden flex flex-col justify-center items-center text-center">
-                    <div class="font-bold text-blue-900 truncate w-full" title="NRC: ${cls.nrc} Sec: ${cls.seccion}">
-                        NRC ${cls.nrc} – ${cls.seccion}
-                    </div>
-                </div>
-            `;
+            cell.innerHTML = `<div class="bg-blue-100 border-l-4 border-blue-600 p-1.5 rounded text-xs shadow-sm h-full overflow-hidden flex flex-col justify-center items-center text-center"><div class="font-bold text-blue-900 truncate w-full" title="NRC: ${cls.nrc} Sec: ${cls.seccion}">NRC ${cls.nrc} – ${cls.seccion}</div></div>`;
         }
     });
 }
@@ -405,108 +408,15 @@ let chartInstance = null;
 function renderOccupancyChart() {
     const ctx = document.getElementById('occupancyChart').getContext('2d');
     if (chartInstance) chartInstance.destroy();
-
     let saturadas = globalData.stats.filter(s => s.status_text === 'Saturada').length;
     let normal = globalData.stats.filter(s => s.status_text === 'Normal').length;
     let libres = globalData.stats.filter(s => s.status_text === 'Libre').length;
-
     chartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['Saturadas (≥30 blq)', 'Normal (≥15 blq)', 'Libres (<15 blq)'],
-            datasets: [{
-                data: [saturadas, normal, libres],
-                backgroundColor: ['#ef4444', '#eab308', '#22c55e'],
-                borderWidth: 0
-            }]
+            datasets: [{ data: [saturadas, normal, libres], backgroundColor: ['#ef4444', '#eab308', '#22c55e'], borderWidth: 0 }]
         }
-    });
-}
-
-// --- NUEVA LÓGICA: BUSCADOR (Con soporte "Cualquiera") ---
-function searchRooms() {
-    if (!globalData) {
-        alert("Primero debes subir un archivo Excel.");
-        return;
-    }
-
-    const selectedDay = document.getElementById('find-day').value; // 'any', 'lunes', etc.
-    const mod = parseInt(document.getElementById('find-mod').value);
-    const cat = document.getElementById('find-cat').value;
-
-    const allDays = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
-    
-    // Si seleccionó "Cualquiera", revisamos todos. Si no, solo el seleccionado.
-    const daysToCheck = (selectedDay === 'any') ? allDays : [selectedDay];
-
-    // 1. Filtrar salas disponibles
-    let availableRooms = globalData.stats.filter(room => {
-        // Filtro de Categoría (Igual que antes)
-        if (cat !== 'all' && room.categoria !== cat) return false;
-        
-        // Filtro de Disponibilidad:
-        // Verificamos si la sala está libre en AL MENOS UNO de los días seleccionados
-        const isFreeInAtLeastOneDay = daysToCheck.some(day => {
-            // Buscamos si existe una clase en esta sala, este día y este módulo
-            const hasClass = globalData.schedule.find(c => 
-                c.ubicacion === room.sala && 
-                c.dia_norm === day && 
-                c.modulo === mod
-            );
-            return !hasClass; // Si NO tiene clase, está libre => true
-        });
-
-        return isFreeInAtLeastOneDay;
-    });
-
-    // 2. Renderizar resultados
-    const container = document.getElementById('finder-results');
-    const tbody = document.getElementById('finder-table-body');
-    const countLabel = document.getElementById('finder-count');
-    
-    tbody.innerHTML = '';
-    container.classList.remove('hidden');
-    countLabel.innerText = `${availableRooms.length} encontrados`;
-
-    if (availableRooms.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-slate-500">No hay salas disponibles con esos criterios.</td></tr>`;
-        return;
-    }
-
-    availableRooms.forEach(room => {
-        // Calcular qué día iluminar al hacer click
-        // Si eligió "Cualquiera", buscamos el primer día libre para mandarlo a la función viewRoomSchedule
-        let dayToHighlight = selectedDay;
-        
-        if (dayToHighlight === 'any') {
-            dayToHighlight = allDays.find(day => {
-                const hasClass = globalData.schedule.find(c => 
-                    c.ubicacion === room.sala && 
-                    c.dia_norm === day && 
-                    c.modulo === mod
-                );
-                return !hasClass;
-            });
-        }
-
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-slate-50 transition";
-        tr.innerHTML = `
-            <td class="px-6 py-3 font-bold text-slate-700">${room.sala}</td>
-            <td class="px-6 py-3">
-                <span class="text-xs font-medium bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">
-                    ${room.categoria}
-                </span>
-            </td>
-            <td class="px-6 py-3 text-slate-500">${room.capacidad_max}</td>
-            <td class="px-6 py-3 text-right">
-                <button onclick="viewRoomSchedule('${room.sala}', '${dayToHighlight}', ${mod})" class="bg-green-600 hover:bg-green-700 text-white text-xs px-3 py-1.5 rounded shadow-sm transition flex items-center gap-1 ml-auto">
-                    Ver Disponibilidad
-                    ${selectedDay === 'any' ? `<span class="text-[10px] opacity-75">(${dayToHighlight})</span>` : ''}
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
     });
 }
 
