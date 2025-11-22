@@ -12,9 +12,47 @@ function handleLogin(e) {
     document.getElementById('main-layout').classList.remove('hidden');
 }
 
+function setSidebarMode(mode) {
+    // Ocultar todos
+    document.getElementById('nav-root').classList.add('hidden');
+    document.getElementById('nav-rooms').classList.add('hidden');
+    document.getElementById('nav-careers').classList.add('hidden');
+
+    // Mostrar el seleccionado
+    if (mode === 'root') {
+        document.getElementById('nav-root').classList.remove('hidden');
+    } else if (mode === 'rooms') {
+        document.getElementById('nav-rooms').classList.remove('hidden');
+    } else if (mode === 'careers') {
+        document.getElementById('nav-careers').classList.remove('hidden');
+    }
+    lucide.createIcons(); // Refrescar iconos por si acaso
+}
+
+function enterModule(moduleName) {
+    if (moduleName === 'rooms') {
+        setSidebarMode('rooms');
+        handleRoomsClick(); // Reutilizamos tu lógica de redirección inteligente
+    } else if (moduleName === 'careers') {
+        setSidebarMode('careers');
+        switchTab('careers');
+    }
+}
+
+function goBackToRoot() {
+    setSidebarMode('root');
+    switchTab('dashboard');
+}
+
 function switchTab(tabId) {
     if (tabId !== 'timetable') currentHighlight = null;
 
+    // Si vamos al dashboard, forzamos el menú raíz
+    if (tabId === 'dashboard') {
+        setSidebarMode('root');
+    }
+
+    // Gestión de estilos de botones (solo afecta al botón visible en ese momento)
     document.querySelectorAll('.nav-btn').forEach(btn => {
         btn.classList.remove('bg-slate-800', 'text-white');
         btn.classList.add('text-slate-300');
@@ -45,10 +83,15 @@ function switchTab(tabId) {
 }
 
 function handleRoomsClick() {
+    // Esta función decide a qué pestaña ir, PERO el sidebar ya debe haberse cambiado antes con enterModule
     if (globalData) {
         switchTab('occupancy');
     } else {
         switchTab('upload');
+        if(document.getElementById('nav-rooms').classList.contains('hidden')) {
+             // Si llamamos esto desde el dashboard card, aseguramos que el sidebar cambie
+             setSidebarMode('rooms');
+        }
     }
 }
 
@@ -495,10 +538,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const del = async () => { while(target.innerText.length > 0) { target.innerText = target.innerText.slice(0,-1); await new Promise(r=>setTimeout(r,50)); }};
             await new Promise(r=>setTimeout(r,500));
             await type("Yonathan App");
-            await new Promise(r=>setTimeout(r,1500));
+            await new Promise(r=>setTimeout(r,1000));
             await del();
             await new Promise(r=>setTimeout(r,300));
-            await type("Your On Campus Network");
+            await type("✨Your On Campus Network✨");
         })();
     }
 });

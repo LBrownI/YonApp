@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <section id="tab-dashboard" class="view-section space-y-8">
     <div class="text-center space-y-2 mb-10">
-        <h2 class="text-3xl font-bold text-slate-800">Bienvenido a YonApp</h2>
+        <h2 class="text-3xl font-bold text-slate-800">Bienvenid@ a YonApp</h2>
         <p class="text-slate-500">Selecciona el módulo al que deseas acceder</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
         
-        <div onclick="handleRoomsClick()" class="group bg-white p-8 rounded-2xl shadow-md border-2 border-transparent hover:border-blue-500 hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1">
+        <div onclick="enterModule('rooms')" class="group bg-white p-8 rounded-2xl shadow-md border-2 border-transparent hover:border-blue-500 hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1">
             <div class="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mb-6 group-hover:bg-blue-600 transition-colors">
                 <i data-lucide="door-open" class="w-10 h-10 text-blue-600 group-hover:text-white transition-colors"></i>
             </div>
@@ -20,7 +20,7 @@
             </span>
         </div>
 
-        <div onclick="switchTab('careers')" class="group bg-white p-8 rounded-2xl shadow-md border-2 border-transparent hover:border-purple-500 hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1">
+        <div onclick="enterModule('careers')" class="group bg-white p-8 rounded-2xl shadow-md border-2 border-transparent hover:border-purple-500 hover:shadow-xl cursor-pointer transition-all duration-300 transform hover:-translate-y-1">
             <div class="bg-purple-50 w-20 h-20 rounded-full flex items-center justify-center mb-6 group-hover:bg-purple-600 transition-colors">
                 <i data-lucide="graduation-cap" class="w-10 h-10 text-purple-600 group-hover:text-white transition-colors"></i>
             </div>
