@@ -139,11 +139,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const type = async (t) => { for(let c of t) { target.innerText += c; await new Promise(r=>setTimeout(r,100)); }};
             const del = async () => { while(target.innerText.length > 0) { target.innerText = target.innerText.slice(0,-1); await new Promise(r=>setTimeout(r,50)); }};
             await new Promise(r=>setTimeout(r,500));
-            await type("Yonathan App");
-            await new Promise(r=>setTimeout(r,1000));
+            await type("Yonathan A");
+            await new Promise(r=>setTimeout(r,300));
             await del();
             await new Promise(r=>setTimeout(r,300));
-            await type("✨Your On Campus Network✨");
+            await type("✨Your on campus network✨");
         })();
     }
 });

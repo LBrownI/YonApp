@@ -151,27 +151,72 @@ async function confirmDeleteCareer() {
 function goToSchedule(code) {
     if(window.switchTab) {
         switchTab('career-schedule');
-        const selector = document.getElementById('schedule-career-selector');
-        if(selector) {
-            selector.value = code;
-            updateScheduleFilters(); 
-        }
+        selectCareer(code);
     }
 }
 
 function updateScheduleSelectors() {
-    const selector = document.getElementById('schedule-career-selector');
-    if(!selector) return;
-    const currentVal = selector.value;
-    selector.innerHTML = '<option value="">-- Seleccionar --</option>';
+    // Inicializar lista de opciones para el buscador
+    const optionsContainer = document.getElementById('schedule-career-options');
+    if(!optionsContainer) return;
+    
+    optionsContainer.innerHTML = '';
     Object.keys(careerDatabase).forEach(code => {
-        const opt = document.createElement('option');
-        opt.value = code;
-        opt.innerText = careerDatabase[code].nombre;
-        selector.appendChild(opt);
+        const div = document.createElement('div');
+        div.className = "p-2 hover:bg-purple-50 cursor-pointer text-sm text-slate-700 border-b border-slate-50 last:border-0";
+        div.innerText = `${code} - ${careerDatabase[code].nombre}`;
+        div.onclick = () => selectCareer(code);
+        div.dataset.code = code;
+        div.dataset.name = careerDatabase[code].nombre;
+        optionsContainer.appendChild(div);
     });
-    selector.value = currentVal; 
-    updateAddButtonState();
+    
+    // Asegurar que no haya selección inicial si no se ha especificado
+    const selector = document.getElementById('schedule-career-selector');
+    const searchInput = document.getElementById('schedule-career-search');
+    if(selector && !selector.value) {
+        searchInput.value = '';
+        updateScheduleFilters();
+    } else {
+        updateAddButtonState();
+    }
+}
+
+// --- FUNCIONES DEL BUSCADOR DE CARRERAS ---
+function showCareerOptions() {
+    document.getElementById('schedule-career-options').classList.remove('hidden');
+}
+
+function hideCareerOptionsDelayed() {
+    setTimeout(() => {
+        document.getElementById('schedule-career-options').classList.add('hidden');
+    }, 200);
+}
+
+function filterCareerOptions() {
+    const query = document.getElementById('schedule-career-search').value.toUpperCase();
+    const options = document.getElementById('schedule-career-options').children;
+    
+    for(let opt of options) {
+        const text = opt.innerText.toUpperCase();
+        if(text.includes(query)) {
+            opt.classList.remove('hidden');
+        } else {
+            opt.classList.add('hidden');
+        }
+    }
+    showCareerOptions();
+}
+
+function selectCareer(code) {
+    const selector = document.getElementById('schedule-career-selector');
+    const searchInput = document.getElementById('schedule-career-search');
+    
+    if(selector && searchInput && careerDatabase[code]) {
+        selector.value = code;
+        searchInput.value = code; // Mostrar solo el código como se solicitó
+        updateScheduleFilters();
+    }
 }
 
 function updateAddButtonState() {
