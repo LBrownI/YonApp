@@ -11,7 +11,7 @@
                 <i data-lucide="list" class="w-5 h-5"></i>
             </button>
 
-            <button onclick="openAddBlockModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-2">
+            <button id="btn-add-block-trigger" onclick="openAddBlockModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-2">
                 <i data-lucide="plus-square" class="w-4 h-4"></i> Añadir Asignatura
             </button>
         </div>
@@ -130,6 +130,34 @@
                     Añadir al Horario
                 </button>
             </div>
+        </div>
+    </div>
+
+    <div id="modal-warning-missing-selection" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-[400px] p-6 animate-in fade-in zoom-in duration-200 border-l-4 border-yellow-500">
+            <div class="flex justify-between items-start mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="bg-yellow-100 p-2 rounded-full">
+                        <i data-lucide="alert-triangle" class="w-6 h-6 text-yellow-600"></i>
+                    </div>
+                    <h3 class="font-bold text-lg text-slate-800">Atención</h3>
+                </div>
+                <button onclick="document.getElementById('modal-warning-missing-selection').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <p class="text-slate-600 text-sm mb-4">
+                Para añadir una asignatura, es necesario configurar los siguientes campos:
+            </p>
+            
+            <ul id="missing-selection-list" class="space-y-2 mb-6 text-sm font-medium text-red-600 list-disc list-inside bg-red-50 p-3 rounded-lg border border-red-100">
+                <!-- List items will be injected here -->
+            </ul>
+
+            <button onclick="document.getElementById('modal-warning-missing-selection').classList.add('hidden')" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2.5 rounded-lg transition">
+                Entendido
+            </button>
         </div>
     </div>
 </section>

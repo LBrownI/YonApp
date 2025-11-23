@@ -129,6 +129,24 @@ function updateScheduleSelectors() {
         selector.appendChild(opt);
     });
     selector.value = currentVal; 
+    updateAddButtonState();
+}
+
+function updateAddButtonState() {
+    const code = document.getElementById('schedule-career-selector').value;
+    const malla = document.getElementById('schedule-malla-selector').value;
+    const sem = document.getElementById('schedule-sem-selector').value;
+    const btn = document.getElementById('btn-add-block-trigger');
+
+    if (!btn) return;
+
+    if (code && malla && sem) {
+        // Estado Activo (Original)
+        btn.className = "bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-2";
+    } else {
+        // Estado Inactivo (Desaturado)
+        btn.className = "bg-purple-200 text-purple-400 px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 cursor-not-allowed";
+    }
 }
 
 function updateScheduleFilters() {
@@ -136,6 +154,8 @@ function updateScheduleFilters() {
     const mallaSel = document.getElementById('schedule-malla-selector');
     const semSel = document.getElementById('schedule-sem-selector');
     const emptyState = document.getElementById('schedule-empty-state');
+
+    updateAddButtonState();
 
     if(!code) {
         mallaSel.innerHTML = '<option value="">--</option>';
@@ -166,6 +186,8 @@ function renderCareerGrid() {
     const sem = document.getElementById('schedule-sem-selector').value;
     const tbody = document.getElementById('schedule-grid-body');
     const emptyState = document.getElementById('schedule-empty-state');
+
+    updateAddButtonState();
 
     if(!code || !malla || !sem) {
         if(emptyState) emptyState.classList.remove('hidden');
@@ -229,10 +251,20 @@ function openAddBlockModal() {
     const malla = document.getElementById('schedule-malla-selector').value;
     const sem = document.getElementById('schedule-sem-selector').value;
 
-    if (!code || !malla || !sem) {
-        alert("Selecciona Carrera, Malla y Semestre primero.");
+    const missing = [];
+    if (!code) missing.push("Carrera");
+    if (!malla) missing.push("Malla Curricular");
+    if (!sem) missing.push("Semestre");
+
+    if (missing.length > 0) {
+        const listEl = document.getElementById('missing-selection-list');
+        listEl.innerHTML = missing.map(item => `<li>${item}</li>`).join('');
+        
+        document.getElementById('modal-warning-missing-selection').classList.remove('hidden');
+        lucide.createIcons();
         return;
     }
+
     document.getElementById('modal-add-block').classList.remove('hidden');
     document.getElementById('block-nrc').focus();
 }
