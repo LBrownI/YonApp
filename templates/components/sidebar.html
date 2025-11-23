@@ -57,14 +57,12 @@
 
             <div class="px-4 mb-2 text-xs font-bold text-purple-400 uppercase tracking-widest">Módulo Carreras</div>
 
-            <button class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left text-slate-300 opacity-50 cursor-not-allowed">
-                <i data-lucide="circle-dashed" class="w-5 h-5"></i> Opción 1
+            <button onclick="switchTab('career-list')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left" id="btn-career-list">
+                <i data-lucide="list" class="w-5 h-5"></i> Listado de Carreras
             </button>
-            <button class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left text-slate-300 opacity-50 cursor-not-allowed">
-                <i data-lucide="circle-dashed" class="w-5 h-5"></i> Opción 2
-            </button>
-            <button class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left text-slate-300 opacity-50 cursor-not-allowed">
-                <i data-lucide="circle-dashed" class="w-5 h-5"></i> Opción 3
+
+            <button onclick="switchTab('career-schedule')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-800 transition text-left" id="btn-career-schedule">
+                <i data-lucide="layout" class="w-5 h-5"></i> Planificador
             </button>
         </div>
 

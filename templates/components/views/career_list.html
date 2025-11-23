@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<section id="tab-career-list" class="view-section hidden space-y-6 h-full flex flex-col">
+    <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+        <div>
+            <h2 class="text-xl font-bold text-slate-800">Administración de Carreras</h2>
+            <p class="text-sm text-slate-500">Gestiona las carreras, mallas y configuración semestral.</p>
+        </div>
+        <button onclick="openCareerConfigModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-2">
+            <i data-lucide="plus"></i> Nueva Carrera
+        </button>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-slate-500 border-b border-slate-200">
+                <tr>
+                    <th class="px-6 py-4 text-left">Código</th>
+                    <th class="px-6 py-4 text-left">Nombre de la Carrera</th>
+                    <th class="px-6 py-4 text-center">Semestres</th>
+                    <th class="px-6 py-4 text-center">Mallas Activas</th>
+                    <th class="px-6 py-4 text-right">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="career-list-body" class="divide-y divide-slate-100">
+                </tbody>
+        </table>
+        
+        <div id="career-list-empty" class="hidden flex flex-col items-center justify-center py-20">
+            <div class="bg-slate-50 p-4 rounded-full mb-3">
+                <i data-lucide="folder-open" class="w-8 h-8 text-slate-300"></i>
+            </div>
+            <p class="text-slate-400">No hay carreras registradas.</p>
+        </div>
+    </div>
+
+    <div id="modal-career-config" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-[500px] p-6 animate-in fade-in zoom-in duration-200">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <h3 class="font-bold text-xl text-slate-800">Configurar Carrera</h3>
+                <button onclick="document.getElementById('modal-career-config').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="col-span-1">
+                        <label class="block text-xs font-bold text-slate-500 mb-1">CÓDIGO</label>
+                        <input type="text" id="cfg-code" placeholder="EJ: ENFE" class="w-full border border-slate-300 rounded-lg p-2 text-sm uppercase focus:ring-2 focus:ring-purple-500 outline-none">
+                    </div>
+                    <div class="col-span-2">
+                        <label class="block text-xs font-bold text-slate-500 mb-1">NOMBRE</label>
+                        <input type="text" id="cfg-name" placeholder="Enfermería" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">TOTAL SEMESTRES</label>
+                    <input type="number" id="cfg-semesters" value="10" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-1">MALLAS (Separadas por coma)</label>
+                    <input type="text" id="cfg-meshes" placeholder="2019, 2024" class="w-full border border-slate-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                    <p class="text-[10px] text-slate-400 mt-1">Ej: 2015, 2019, 2024</p>
+                </div>
+
+                <button onclick="saveCareerConfig()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-lg transition shadow-md mt-4">
+                    Guardar Cambios
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-delete-career" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-96 p-6">
+            <div class="flex items-center gap-3 mb-4 text-red-600">
+                <div class="bg-red-100 p-2 rounded-full">
+                    <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-800">¿Borrar Carrera?</h3>
+            </div>
+            <p class="text-slate-500 text-sm mb-6">
+                Se eliminará la carrera <span id="del-career-name" class="font-bold text-slate-800"></span> y toda su configuración de horarios.
+            </p>
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('modal-delete-career').classList.add('hidden')" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium transition">Cancelar</button>
+                <button onclick="confirmDeleteCareer()" class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition shadow-md">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</section>
