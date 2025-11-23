@@ -37,7 +37,7 @@ function enterModule(moduleName) {
         }
     } else if (moduleName === 'careers') {
         setSidebarMode('careers');
-        switchTab('careers');
+        switchTab('career-schedule');
     }
 }
 
