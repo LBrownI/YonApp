@@ -18,10 +18,26 @@ CAREER_DATABASE = {
     },
 }
 
+# 1 = Primer Semestre (Impares), 2 = Segundo Semestre (Pares)
+PLANNING_PERIOD = 1
+
 
 @careers_bp.route("/get_careers", methods=["GET"])
 def get_careers():
-    return jsonify({"success": True, "data": CAREER_DATABASE})
+    return jsonify(
+        {"success": True, "data": CAREER_DATABASE, "period": PLANNING_PERIOD}
+    )
+
+
+@careers_bp.route("/set_planning_period", methods=["POST"])
+def set_planning_period():
+    global PLANNING_PERIOD
+    data = request.json
+    period = int(data.get("period", 1))
+    if period in [1, 2]:
+        PLANNING_PERIOD = period
+        return jsonify({"success": True, "period": PLANNING_PERIOD})
+    return jsonify({"error": "Periodo inválido"}), 400
 
 
 @careers_bp.route("/save_career", methods=["POST"])

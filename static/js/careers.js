@@ -1,6 +1,7 @@
 // careers.js - Lógica del Módulo de Carreras
 let careerDatabase = {}; 
 let careerPendingDelete = null;
+let currentPlanningPeriod = 1; // 1 = Impares, 2 = Pares
 
 document.addEventListener('DOMContentLoaded', () => {
     loadCareers();
@@ -13,10 +14,51 @@ async function loadCareers() {
         const json = await res.json();
         if(json.success) {
             careerDatabase = json.data;
+            currentPlanningPeriod = json.period || 1;
+            updatePeriodUI();
             renderCareerListTable();
             updateScheduleSelectors();
         }
     } catch(e) { console.error("Error cargando carreras", e); }
+}
+
+// --- CONFIGURACIÓN DE PERIODO ---
+function openPeriodConfigModal() {
+    document.getElementById('modal-period-config').classList.remove('hidden');
+    updatePeriodUI();
+}
+
+async function setPlanningPeriod(period) {
+    try {
+        const res = await fetch('/set_planning_period', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ period })
+        });
+        const json = await res.json();
+        if(json.success) {
+            currentPlanningPeriod = json.period;
+            updatePeriodUI();
+            updateScheduleSelectors(); // Refrescar selectores
+            document.getElementById('modal-period-config').classList.add('hidden');
+        }
+    } catch(e) { console.error("Error setting period", e); }
+}
+
+function updatePeriodUI() {
+    // Actualizar etiqueta en el botón principal
+    const label = document.getElementById('current-period-label');
+    if(label) label.innerText = currentPlanningPeriod === 1 ? "Periodo: 1° Semestre" : "Periodo: 2° Semestre";
+
+    // Actualizar selección en el modal
+    document.querySelectorAll('.check-indicator').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('[id^="btn-period-"]').forEach(el => el.classList.remove('border-purple-500', 'bg-purple-50'));
+    
+    const activeBtn = document.getElementById('btn-period-' + currentPlanningPeriod);
+    if(activeBtn) {
+        activeBtn.classList.add('border-purple-500', 'bg-purple-50');
+        activeBtn.querySelector('.check-indicator').classList.remove('hidden');
+    }
 }
 
 // --- VISTA 1: LISTADO (Sin cambios en esta parte) ---
@@ -173,10 +215,18 @@ function updateScheduleFilters() {
     });
     semSel.innerHTML = '<option value="">-- Seleccionar Semestre --</option>';
     for(let i=1; i<=career.semestres; i++) {
-        const opt = document.createElement('option');
-        opt.value = i;
-        opt.innerText = `Semestre ${i}`;
-        semSel.appendChild(opt);
+        // Filtrar según periodo: 
+        // Periodo 1 (Impares): i % 2 !== 0
+        // Periodo 2 (Pares): i % 2 === 0
+        const isOdd = i % 2 !== 0;
+        const show = (currentPlanningPeriod === 1 && isOdd) || (currentPlanningPeriod === 2 && !isOdd);
+        
+        if(show) {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.innerText = `Semestre ${i}`;
+            semSel.appendChild(opt);
+        }
     }
 }
 

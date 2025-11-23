@@ -77,7 +77,8 @@ function switchTab(tabId) {
         'timetable': 'Visualizador de Horarios',
         'occupancy': 'Monitor de Ocupación',
         'finder': 'Buscador de Salas',
-        'careers': 'Gestión de Asignaturas por Carrera'
+        'career-schedule': 'Planificador',
+        'career-list': 'Administración de Carreras'
     };
     const titleEl = document.getElementById('page-title');
     if (titleEl) titleEl.innerText = titles[tabId] || 'YonApp';

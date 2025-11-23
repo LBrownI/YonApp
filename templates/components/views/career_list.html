@@ -5,9 +5,14 @@
             <h2 class="text-xl font-bold text-slate-800">Administración de Carreras</h2>
             <p class="text-sm text-slate-500">Gestiona las carreras, mallas y configuración semestral.</p>
         </div>
-        <button onclick="openCareerConfigModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-2">
-            <i data-lucide="plus"></i> Nueva Carrera
-        </button>
+        <div class="flex gap-2">
+            <button onclick="openPeriodConfigModal()" class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-2">
+                <i data-lucide="settings-2" class="w-4 h-4"></i> <span id="current-period-label">Periodo: --</span>
+            </button>
+            <button onclick="openCareerConfigModal()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-2">
+                <i data-lucide="plus"></i> Nueva Carrera
+            </button>
+        </div>
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex-1">
@@ -30,6 +35,44 @@
                 <i data-lucide="folder-open" class="w-8 h-8 text-slate-300"></i>
             </div>
             <p class="text-slate-400">No hay carreras registradas.</p>
+        </div>
+    </div>
+
+    <!-- Modal de Configuración Global del Periodo -->
+    <div id="modal-period-config" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-[400px] p-6 animate-in fade-in zoom-in duration-200">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <h3 class="font-bold text-lg text-slate-800">Configuración de Periodo</h3>
+                <button onclick="document.getElementById('modal-period-config').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <p class="text-sm text-slate-600 mb-4">
+                Selecciona el periodo académico para el cual se realizará la planificación. Esto afectará los semestres disponibles.
+            </p>
+
+            <div class="space-y-3">
+                <button onclick="setPlanningPeriod(1)" id="btn-period-1" class="w-full p-3 rounded-lg border-2 text-left flex items-center gap-3 transition hover:bg-slate-50">
+                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center">
+                        <div class="w-2.5 h-2.5 rounded-full bg-purple-600 hidden check-indicator"></div>
+                    </div>
+                    <div>
+                        <div class="font-bold text-slate-700">Primer Semestre</div>
+                        <div class="text-xs text-slate-500">Planificar semestres impares (1, 3, 5...)</div>
+                    </div>
+                </button>
+
+                <button onclick="setPlanningPeriod(2)" id="btn-period-2" class="w-full p-3 rounded-lg border-2 text-left flex items-center gap-3 transition hover:bg-slate-50">
+                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center">
+                        <div class="w-2.5 h-2.5 rounded-full bg-purple-600 hidden check-indicator"></div>
+                    </div>
+                    <div>
+                        <div class="font-bold text-slate-700">Segundo Semestre</div>
+                        <div class="text-xs text-slate-500">Planificar semestres pares (2, 4, 6...)</div>
+                    </div>
+                </button>
+            </div>
         </div>
     </div>
 
