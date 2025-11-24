@@ -1,6 +1,7 @@
 // subjects.js - Lógica del Buscador de Asignaturas
 
 let allSubjects = []; // Array plano de todas las asignaturas encontradas
+let currentSelectedSubjectKey = null; // Para rastrear la selección actual
 
 function loadSubjectsFromDatabase() {
     // Recorrer careerDatabase y extraer todas las asignaturas únicas
@@ -23,8 +24,6 @@ function loadSubjectsFromDatabase() {
             }
 
             const subject = subjectsMap.get(key);
-            // Agregar ocurrencia si no existe ya (para evitar duplicados si hay bloques contiguos o algo así, aunque aquí guardamos bloques individuales)
-            // En realidad, queremos agrupar por "horario" (dia/modulo)
             
             subject.occurrences.push({
                 career: careerCode,
@@ -40,6 +39,25 @@ function loadSubjectsFromDatabase() {
 
     allSubjects = Array.from(subjectsMap.values());
     renderSubjectList(allSubjects);
+
+    // Actualizar vista de detalles si hay algo seleccionado
+    if (currentSelectedSubjectKey) {
+        const found = allSubjects.find(s => `${s.nrc}-${s.seccion}` === currentSelectedSubjectKey);
+        if (found) {
+            showSubjectDetails(found);
+        } else {
+            clearSubjectDetails();
+        }
+    }
+}
+
+function clearSubjectDetails() {
+    currentSelectedSubjectKey = null;
+    const emptyState = document.getElementById('subject-detail-empty');
+    const contentState = document.getElementById('subject-detail-content');
+    
+    if(emptyState) emptyState.classList.remove('hidden');
+    if(contentState) contentState.classList.add('hidden');
 }
 
 function renderSubjectList(subjects) {
@@ -81,6 +99,8 @@ function filterSubjects() {
 }
 
 function showSubjectDetails(subject) {
+    currentSelectedSubjectKey = `${subject.nrc}-${subject.seccion}`;
+
     document.getElementById('subject-detail-empty').classList.add('hidden');
     document.getElementById('subject-detail-content').classList.remove('hidden');
 

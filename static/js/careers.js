@@ -323,7 +323,8 @@ function renderCareerGrid() {
                     if(block.tipo === 'SIM') bgClass = "bg-purple-50 border-purple-200 text-purple-700";
 
                     return `
-                        <div class="flex-1 ${bgClass} border border-l-4 p-1 text-xs flex flex-col justify-center items-center overflow-hidden hover:brightness-95 transition cursor-pointer text-center">
+                        <div class="flex-1 ${bgClass} border border-l-4 p-1 text-xs flex flex-col justify-center items-center overflow-hidden hover:brightness-95 transition cursor-pointer text-center"
+                             onclick="openEditBlockModal('${code}','${malla}','${sem}','${block.dia}',${block.modulo},'${block.nrc}','${block.seccion}')">
                             <div class="font-bold truncate w-full" title="NRC: ${block.nrc}">NRC ${block.nrc} - ${block.seccion}</div>
                             <div class="text-[10px] opacity-80 font-bold mt-1 bg-white/50 px-1 rounded">${block.tipo}</div>
                         </div>
@@ -379,6 +380,21 @@ function selectBlockType(type, btn) {
     document.getElementById('block-type').value = type;
 }
 
+function selectEditBlockType(type, btn) {
+    document.querySelectorAll('.edit-type-btn').forEach(b => {
+        b.className = "edit-type-btn border border-slate-200 text-slate-500 hover:bg-slate-50 py-2 rounded text-xs transition";
+    });
+
+    let activeClasses = "edit-type-btn active border-2 font-bold py-2 rounded text-xs transition ";
+    if (type === 'TEO') activeClasses += "border-blue-500 bg-blue-50 text-blue-700";
+    else if (type === 'LAB') activeClasses += "border-orange-500 bg-orange-50 text-orange-700";
+    else if (type === 'TAL') activeClasses += "border-green-500 bg-green-50 text-green-700";
+    else if (type === 'SIM') activeClasses += "border-purple-500 bg-purple-50 text-purple-700";
+    
+    btn.className = activeClasses;
+    document.getElementById('edit-block-type').value = type;
+}
+
 async function submitNewBlock() {
     const code = document.getElementById('schedule-career-selector').value;
     const malla = document.getElementById('schedule-malla-selector').value;
@@ -423,6 +439,120 @@ async function submitNewBlock() {
             alert("Error: " + json.error);
         }
     } catch(e) { alert("Error de conexión"); }
+}
+
+// --- EDITAR / ELIMINAR BLOQUES DESDE EL HORARIO ---
+
+let currentEditBlock = null;
+
+function openEditBlockModal(careerCode, malla, semestre, dia, modulo, nrc, seccion) {
+    // Buscar el bloque en la base local para obtener su tipo actual
+    let tipo = 'TEO';
+    const career = careerDatabase[careerCode];
+    if (career && Array.isArray(career.planificacion)) {
+        const found = career.planificacion.find(b =>
+            b.malla === malla && String(b.semestre) === String(semestre) &&
+            b.dia === dia && Number(b.modulo) === Number(modulo) &&
+            String(b.nrc) === String(nrc) && b.seccion === seccion
+        );
+        if (found && found.tipo) tipo = found.tipo;
+    }
+
+    currentEditBlock = { careerCode, malla, semestre, dia, modulo, nrc, seccion, tipo };
+
+    document.getElementById('edit-nrc').value = nrc;
+    document.getElementById('edit-sec').value = seccion;
+    document.getElementById('edit-day').value = dia;
+    document.getElementById('edit-mod').value = modulo;
+    
+    // Set type
+    const typeBtn = Array.from(document.querySelectorAll('.edit-type-btn')).find(b => b.innerText.includes(tipo));
+    if(typeBtn) {
+        selectEditBlockType(tipo, typeBtn);
+    } else {
+        // Fallback if something is wrong, default to TEO
+        const defaultBtn = document.querySelector('.edit-type-btn');
+        if(defaultBtn) selectEditBlockType('TEO', defaultBtn);
+    }
+
+    document.getElementById('modal-edit-block').classList.remove('hidden');
+}
+
+async function saveEditedBlock() {
+    if (!currentEditBlock) return;
+
+    const newDay = document.getElementById('edit-day').value;
+    const newMod = document.getElementById('edit-mod').value;
+    const newType = document.getElementById('edit-block-type').value;
+
+    try {
+        const res = await fetch('/edit_block', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                career_code: currentEditBlock.careerCode,
+                malla: currentEditBlock.malla,
+                semestre: currentEditBlock.semestre,
+                old_dia: currentEditBlock.dia,
+                old_modulo: currentEditBlock.modulo,
+                nrc: currentEditBlock.nrc,
+                seccion: currentEditBlock.seccion,
+                new_dia: newDay,
+                new_modulo: newMod,
+                new_tipo: newType
+            })
+        });
+        const json = await res.json();
+        if (json.success) {
+            careerDatabase = json.data;
+            renderCareerGrid();
+            if (typeof loadSubjectsFromDatabase === 'function') {
+                loadSubjectsFromDatabase();
+            }
+            document.getElementById('modal-edit-block').classList.add('hidden');
+            currentEditBlock = null;
+        } else {
+            alert('Error: ' + json.error);
+        }
+    } catch (e) {
+        alert('Error de conexión');
+    }
+}
+
+async function deleteBlockFromModal() {
+    if (!currentEditBlock) return;
+
+    if (!confirm('¿Eliminar este bloque?')) return;
+
+    try {
+        const res = await fetch('/delete_block', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                career_code: currentEditBlock.careerCode,
+                malla: currentEditBlock.malla,
+                semestre: currentEditBlock.semestre,
+                dia: currentEditBlock.dia,
+                modulo: currentEditBlock.modulo,
+                nrc: currentEditBlock.nrc,
+                seccion: currentEditBlock.seccion
+            })
+        });
+        const json = await res.json();
+        if (json.success) {
+            careerDatabase = json.data;
+            renderCareerGrid();
+            if (typeof loadSubjectsFromDatabase === 'function') {
+                loadSubjectsFromDatabase();
+            }
+            document.getElementById('modal-edit-block').classList.add('hidden');
+            currentEditBlock = null;
+        } else {
+            alert('Error: ' + json.error);
+        }
+    } catch (e) {
+        alert('Error de conexión');
+    }
 }
 
 // --- AUTOCOMPLETE DE NRC EN MODAL ---

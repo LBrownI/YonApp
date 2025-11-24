@@ -105,6 +105,16 @@
 
                 <div>
                     <label class="block text-xs font-bold text-slate-500 mb-2 uppercase">Tipo</label>
+                    <select id="edit-type" class="w-full border border-slate-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-purple-500 bg-white">
+                        <option value="TEO">TEO (Teórico)</option>
+                        <option value="LAB">LAB (Laboratorio)</option>
+                        <option value="TAL">TAL (Taller)</option>
+                        <option value="SIM">SIM (Simulación)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-2 uppercase">Tipo</label>
                     <div class="grid grid-cols-4 gap-2" id="type-selector-container">
                         <input type="hidden" id="block-type" value="TEO">
                         
@@ -145,6 +155,78 @@
                 <button onclick="submitNewBlock()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-lg transition shadow-md mt-4">
                     Añadir al Horario
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-edit-block" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-[450px] p-6 animate-in fade-in zoom-in duration-200">
+            <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
+                <h3 class="font-bold text-lg text-slate-800">Editar Bloque</h3>
+                <button onclick="document.getElementById('modal-edit-block').classList.add('hidden')" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">NRC</label>
+                        <input type="text" id="edit-nrc" class="w-full border border-slate-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono" disabled>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Sección</label>
+                        <input type="text" id="edit-sec" class="w-full border border-slate-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono" disabled>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 mb-2 uppercase">Tipo</label>
+                    <div class="grid grid-cols-4 gap-2" id="edit-type-selector-container">
+                        <input type="hidden" id="edit-block-type" value="">
+                        
+                        <button onclick="selectEditBlockType('TEO', this)" class="edit-type-btn border border-slate-200 text-slate-500 hover:bg-slate-50 py-2 rounded text-xs transition">TEO</button>
+                        <button onclick="selectEditBlockType('LAB', this)" class="edit-type-btn border border-slate-200 text-slate-500 hover:bg-slate-50 py-2 rounded text-xs transition">LAB</button>
+                        <button onclick="selectEditBlockType('TAL', this)" class="edit-type-btn border border-slate-200 text-slate-500 hover:bg-slate-50 py-2 rounded text-xs transition">TAL</button>
+                        <button onclick="selectEditBlockType('SIM', this)" class="edit-type-btn border border-slate-200 text-slate-500 hover:bg-slate-50 py-2 rounded text-xs transition">SIM</button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Día</label>
+                        <select id="edit-day" class="w-full border border-slate-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-purple-500 bg-white">
+                            <option value="lunes">Lunes</option>
+                            <option value="martes">Martes</option>
+                            <option value="miercoles">Miércoles</option>
+                            <option value="jueves">Jueves</option>
+                            <option value="viernes">Viernes</option>
+                            <option value="sabado">Sábado</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Módulo</label>
+                        <select id="edit-mod" class="w-full border border-slate-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-purple-500 bg-white">
+                            <option value="1">M1 (08:00 - 09:20)</option>
+                            <option value="2">M2 (09:30 - 10:50)</option>
+                            <option value="3">M3 (11:00 - 12:20)</option>
+                            <option value="4">M4 (12:30 - 13:50)</option>
+                            <option value="5">M5 (14:00 - 15:20)</option>
+                            <option value="6">M6 (15:30 - 16:50)</option>
+                            <option value="7">M7 (17:00 - 18:20)</option>
+                            <option value="8">M8 (18:30 - 19:50)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 mt-4">
+                    <button onclick="deleteBlockFromModal()" class="w-1/3 bg-red-600 hover:bg-red-700 text-white font-bold py-2.5 rounded-lg transition shadow-md">
+                        Eliminar
+                    </button>
+                    <button onclick="saveEditedBlock()" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-lg transition shadow-md">
+                        Guardar Cambios
+                    </button>
+                </div>
             </div>
         </div>
     </div>

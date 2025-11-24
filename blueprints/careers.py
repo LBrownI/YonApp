@@ -67,6 +67,106 @@ def save_career():
     return jsonify({"success": True, "data": CAREER_DATABASE})
 
 
+@careers_bp.route("/edit_block", methods=["POST"])
+def edit_block():
+    data = request.json
+    code = data.get("career_code")
+    malla = data.get("malla")
+    semestre = data.get("semestre")
+    old_dia = data.get("old_dia")
+    old_mod = int(data.get("old_modulo"))
+    nrc = data.get("nrc")
+    seccion = data.get("seccion")
+    new_dia = data.get("new_dia") or old_dia
+    new_mod = int(data.get("new_modulo")) if data.get("new_modulo") is not None else old_mod
+    new_tipo = data.get("new_tipo")  # opcional, por si cambiamos de TEO a LAB, etc.
+
+    career = CAREER_DATABASE.get(code)
+    if not career:
+        return jsonify({"success": False, "error": "Carrera no encontrada"}), 400
+
+    plan = career.get("planificacion", [])
+
+    # 1) Encontrar el bloque a editar
+    target_block = None
+    for block in plan:
+        if (
+            block.get("malla") == malla
+            and str(block.get("semestre")) == str(semestre)
+            and block.get("dia") == old_dia
+            and int(block.get("modulo")) == old_mod
+            and str(block.get("nrc")) == str(nrc)
+            and block.get("seccion") == seccion
+        ):
+            target_block = block
+            break
+
+    if not target_block:
+        return jsonify({"success": False, "error": "Bloque no encontrado"}), 404
+
+    # 2) Determinar tipo resultante (si se cambia)
+    resulting_tipo = new_tipo or target_block.get("tipo")
+
+    # 3) Verificar tope: ¿ya existe un bloque del mismo tipo en ese dia/módulo/malla/semestre?
+    for block in plan:
+        if block is target_block:
+            continue
+        if (
+            block.get("malla") == malla
+            and str(block.get("semestre")) == str(semestre)
+            and block.get("dia") == new_dia
+            and int(block.get("modulo")) == new_mod
+            and block.get("tipo") == resulting_tipo
+        ):
+            return jsonify({
+                "success": False,
+                "error": "Tope de horario: ya existe un bloque del mismo tipo en ese módulo"
+            }), 400
+
+    # 4) Aplicar cambios
+    target_block["dia"] = new_dia
+    target_block["modulo"] = new_mod
+    if new_tipo:
+        target_block["tipo"] = new_tipo
+
+    return jsonify({"success": True, "data": CAREER_DATABASE})
+
+
+@careers_bp.route("/delete_block", methods=["POST"])
+def delete_block():
+    data = request.json
+    code = data.get("career_code")
+    malla = data.get("malla")
+    semestre = data.get("semestre")
+    dia = data.get("dia")
+    mod = int(data.get("modulo"))
+    nrc = data.get("nrc")
+    seccion = data.get("seccion")
+
+    career = CAREER_DATABASE.get(code)
+    if not career:
+        return jsonify({"success": False, "error": "Carrera no encontrada"}), 400
+
+    original_len = len(career.get("planificacion", []))
+    career["planificacion"] = [
+        b
+        for b in career.get("planificacion", [])
+        if not (
+            b.get("malla") == malla
+            and str(b.get("semestre")) == str(semestre)
+            and b.get("dia") == dia
+            and int(b.get("modulo")) == mod
+            and str(b.get("nrc")) == str(nrc)
+            and b.get("seccion") == seccion
+        )
+    ]
+
+    if len(career["planificacion"]) == original_len:
+        return jsonify({"success": False, "error": "Bloque no encontrado"}), 404
+
+    return jsonify({"success": True, "data": CAREER_DATABASE})
+
+
 @careers_bp.route("/delete_career", methods=["POST"])
 def delete_career():
     data = request.json
