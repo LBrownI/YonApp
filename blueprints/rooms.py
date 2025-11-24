@@ -123,6 +123,9 @@ ROOM_DATABASE = {
     "B204": {"cap": 30, "cat": "Laboratorio"},
 }
 
+EXTRA_SCHEDULE = []
+DELETED_ENTRIES = []
+
 
 def normalize_columns(df):
     df.columns = df.columns.str.strip().str.lower()
@@ -336,6 +339,37 @@ def upload_file():
         data, error = process_schedule(filepath)
         if error:
             return jsonify({"error": error}), 500
+
+        # Merge extra schedule
+        if data and "schedule" in data:
+            # Filter out deleted entries from file data
+            data["schedule"] = [
+                s
+                for s in data["schedule"]
+                if not any(
+                    d["nrc"] == s["nrc"]
+                    and d["seccion"] == s["seccion"]
+                    and d["dia_norm"] == s["dia_norm"]
+                    and d["modulo"] == s["modulo"]
+                    and d["ubicacion"] == s["ubicacion"]
+                    for d in DELETED_ENTRIES
+                )
+            ]
+            # Add extra schedule (filtering deleted ones too just in case)
+            active_extras = [
+                s
+                for s in EXTRA_SCHEDULE
+                if not any(
+                    d["nrc"] == s["nrc"]
+                    and d["seccion"] == s["seccion"]
+                    and d["dia_norm"] == s["dia_norm"]
+                    and d["modulo"] == s["modulo"]
+                    and d["ubicacion"] == s["ubicacion"]
+                    for d in DELETED_ENTRIES
+                )
+            ]
+            data["schedule"].extend(active_extras)
+
         return jsonify({"success": True, "data": data})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -362,3 +396,69 @@ def delete_room():
         del ROOM_DATABASE[room_to_delete]
         return jsonify({"success": True})
     return jsonify({"error": "Sala no encontrada"}), 404
+
+
+@rooms_bp.route("/assign_subject", methods=["POST"])
+def assign_subject():
+    data = request.json
+    # Validate required fields
+    required = ["nrc", "seccion", "dia", "modulo", "sala"]
+    if not all(k in data for k in required):
+        return jsonify({"error": "Faltan datos requeridos"}), 400
+
+    # Create schedule entry
+    new_entry = {
+        "materia": data.get("materia", "Asignatura Manual"),
+        "codigo_materia": data.get("codigo", ""),
+        "ubicacion": data["sala"],
+        "grupo": "",
+        "nrc": data["nrc"],
+        "seccion": data["seccion"],
+        "n_curso": "",
+        "componente": "",
+        "fecha_ini": "",
+        "fecha_term": "",
+        "profesor": "Por Asignar",
+        "tiempo": "",
+        "modulo": int(data["modulo"]),
+        "dia_norm": data["dia"],
+        "type": "manual",
+    }
+
+    EXTRA_SCHEDULE.append(new_entry)
+    return jsonify({"success": True, "entry": new_entry})
+
+
+@rooms_bp.route("/delete_assignment", methods=["POST"])
+def delete_assignment():
+    data = request.json
+    required = ["nrc", "seccion", "dia_norm", "modulo", "ubicacion"]
+    if not all(k in data for k in required):
+        return jsonify({"error": "Faltan datos para identificar el bloque"}), 400
+
+    # Remove from EXTRA_SCHEDULE if present
+    global EXTRA_SCHEDULE
+    EXTRA_SCHEDULE = [
+        s
+        for s in EXTRA_SCHEDULE
+        if not (
+            s["nrc"] == data["nrc"]
+            and s["seccion"] == data["seccion"]
+            and s["dia_norm"] == data["dia_norm"]
+            and s["modulo"] == data["modulo"]
+            and s["ubicacion"] == data["ubicacion"]
+        )
+    ]
+
+    # Add to DELETED_ENTRIES to prevent it from reappearing from file
+    DELETED_ENTRIES.append(
+        {
+            "nrc": data["nrc"],
+            "seccion": data["seccion"],
+            "dia_norm": data["dia_norm"],
+            "modulo": data["modulo"],
+            "ubicacion": data["ubicacion"],
+        }
+    )
+
+    return jsonify({"success": True})

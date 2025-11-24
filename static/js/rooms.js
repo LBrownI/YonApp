@@ -3,6 +3,7 @@ let globalData = null;
 let sortDirection = 'asc'; 
 let currentHighlight = null; 
 let roomPendingDelete = null; 
+let blockToDelete = null; // Para seguimiento de bloque a eliminar
 
 // --- UTILIDADES DEL MÓDULO ---
 function handleRoomsClick() {
@@ -297,9 +298,15 @@ function renderTimetable(salaName) {
         if (cell) {
             cell.classList.remove('bg-green-50', 'ring-2', 'ring-green-500', 'ring-inset');
             const clsString = encodeURIComponent(JSON.stringify(cls));
+            
+            const isManual = cls.type === 'manual';
+            const cardClasses = isManual 
+                ? 'bg-purple-100 border-purple-600 hover:bg-purple-200 text-purple-900' 
+                : 'bg-blue-100 border-blue-600 hover:bg-blue-200 text-blue-900';
+
             cell.innerHTML = `
-                <div onclick="openDetailsPanel('${clsString}')" class="bg-blue-100 border-l-4 border-blue-600 p-1.5 rounded text-xs shadow-sm h-full overflow-hidden flex flex-col justify-center items-center text-center cursor-pointer hover:bg-blue-200 transition-colors group">
-                    <div class="font-bold text-blue-900 truncate w-full group-hover:scale-105 transition-transform" title="NRC: ${cls.nrc} Sec: ${cls.seccion}">
+                <div onclick="openDetailsPanel('${clsString}')" class="${cardClasses} border-l-4 p-1.5 rounded text-xs shadow-sm h-full overflow-hidden flex flex-col justify-center items-center text-center cursor-pointer transition-colors group">
+                    <div class="font-bold truncate w-full group-hover:scale-105 transition-transform" title="NRC: ${cls.nrc} Sec: ${cls.seccion}">
                         NRC ${cls.nrc} – ${cls.seccion}
                     </div>
                 </div>
@@ -352,6 +359,12 @@ function openDetailsPanel(encodedCls) {
                 <div class="bg-slate-50 p-2 rounded text-xs text-slate-600 flex justify-between">
                     <span>${cls.fecha_ini}</span><i data-lucide="arrow-right" class="w-3 h-3 self-center"></i><span>${cls.fecha_term}</span>
                 </div>
+            </div>
+            
+            <div class="pt-4 mt-auto">
+                <button onclick="openDeleteModal('${encodedCls}')" class="w-full bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold py-2 rounded border border-red-200 transition flex items-center justify-center gap-2">
+                    <i data-lucide="trash-2" class="w-4 h-4"></i> Eliminar Bloque
+                </button>
             </div>
         </div>
     `;
@@ -410,3 +423,164 @@ function renderOccupancyChart() {
         }
     });
 }
+
+// --- ASIGNACIÓN MANUAL DE ASIGNATURAS ---
+function openAssignModal() {
+    const selector = document.getElementById('room-selector');
+    if (!selector || !selector.value) {
+        showStatusModal('error', 'Error', 'Debe seleccionar una sala primero.');
+        return;
+    }
+    
+    const modal = document.getElementById('modal-assign-subject');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.getElementById('assign-nrc').value = '';
+        document.getElementById('assign-section').value = '';
+        document.getElementById('assign-nrc').focus();
+    }
+}
+
+function closeAssignModal() {
+    const modal = document.getElementById('modal-assign-subject');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+async function submitAssignment() {
+    const selector = document.getElementById('room-selector');
+    const nrc = document.getElementById('assign-nrc').value;
+    const section = document.getElementById('assign-section').value;
+    const day = document.getElementById('assign-day').value;
+    const module = document.getElementById('assign-module').value;
+
+    if (!nrc || !section) {
+        showStatusModal('error', 'Datos Incompletos', 'Por favor ingrese NRC y Sección.');
+        return;
+    }
+
+    // Check for conflicts
+    if (globalData && globalData.schedule) {
+        const conflict = globalData.schedule.find(s => 
+            s.ubicacion === selector.value &&
+            s.dia_norm === day &&
+            s.modulo == module // Loose equality for string/number comparison
+        );
+
+        if (conflict) {
+            showStatusModal('error', 'Conflicto de Horario', `La sala ${selector.value} ya está ocupada el ${day} en el módulo ${module}.`);
+            return;
+        }
+    }
+
+    const payload = {
+        sala: selector.value,
+        nrc: nrc,
+        seccion: section,
+        dia: day,
+        modulo: module
+    };
+
+    try {
+        const response = await fetch('/assign_subject', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Actualizar globalData localmente
+            if (globalData && globalData.schedule) {
+                globalData.schedule.push(result.entry);
+            }
+            
+            closeAssignModal();
+            renderTimetable(selector.value);
+            showStatusModal('success', 'Asignada', 'La asignatura se ha añadido correctamente.');
+        } else {
+            showStatusModal('error', 'Error', result.error || 'No se pudo asignar.');
+        }
+    } catch (error) {
+        console.error("Error asignando:", error);
+        showStatusModal('error', 'Error', 'Fallo de conexión.');
+    }
+}
+
+// --- ELIMINACIÓN DE BLOQUES ---
+function openDeleteModal(encodedCls) {
+    blockToDelete = JSON.parse(decodeURIComponent(encodedCls));
+    const modal = document.getElementById('modal-delete-block');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+}
+
+function closeDeleteModal() {
+    blockToDelete = null;
+    const modal = document.getElementById('modal-delete-block');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+async function confirmDeleteBlock() {
+    if (!blockToDelete) return;
+
+    try {
+        const response = await fetch('/delete_assignment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(blockToDelete)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Eliminar del globalData localmente
+            if (globalData && globalData.schedule) {
+                globalData.schedule = globalData.schedule.filter(item => 
+                    !(item.nrc === blockToDelete.nrc && 
+                      item.seccion === blockToDelete.seccion && 
+                      item.dia_norm === blockToDelete.dia_norm && 
+                      item.modulo === blockToDelete.modulo &&
+                      item.ubicacion === blockToDelete.ubicacion)
+                );
+            }
+            
+            closeDeleteModal();
+            closeDetailsPanel();
+            renderTimetable(blockToDelete.ubicacion);
+            showStatusModal('success', 'Eliminado', 'El bloque ha sido eliminado correctamente.');
+        } else {
+            showStatusModal('error', 'Error', result.error || 'No se pudo eliminar.');
+        }
+    } catch (error) {
+        console.error("Error eliminando:", error);
+        showStatusModal('error', 'Error', 'Fallo de conexión.');
+    }
+}
+
+// --- VALIDACIÓN DE INPUTS ---
+document.addEventListener('DOMContentLoaded', () => {
+    const nrcInput = document.getElementById('assign-nrc');
+    const sectionInput = document.getElementById('assign-section');
+
+    if (nrcInput) {
+        nrcInput.addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+    }
+
+    if (sectionInput) {
+        sectionInput.addEventListener('input', function(e) {
+            this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        });
+    }
+});
