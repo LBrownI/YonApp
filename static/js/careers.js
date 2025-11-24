@@ -99,9 +99,16 @@ function openCareerConfigModal() {
     document.getElementById('cfg-meshes').value = '';
 }
 
+function toTitleCase(str) {
+    return str.replace(/\w\S*/g, function(txt){
+        return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();
+    });
+}
+
 async function saveCareerConfig() {
     const code = document.getElementById('cfg-code').value.toUpperCase();
-    const name = document.getElementById('cfg-name').value;
+    const nameRaw = document.getElementById('cfg-name').value;
+    const name = toTitleCase(nameRaw);
     const sem = document.getElementById('cfg-semesters').value;
     const meshesRaw = document.getElementById('cfg-meshes').value;
     const meshes = meshesRaw.split(',').map(m => m.trim()).filter(m => m !== '');
@@ -402,7 +409,7 @@ async function submitNewBlock() {
     
     // Validamos NRC y Sección en vez de nombre
     const nrc = document.getElementById('block-nrc').value;
-    const sec = document.getElementById('block-sec').value;
+    const sec = document.getElementById('block-sec').value.toUpperCase();
     const day = document.getElementById('block-day').value;
     const mod = document.getElementById('block-mod').value;
     const type = document.getElementById('block-type').value;
@@ -519,10 +526,13 @@ async function saveEditedBlock() {
     }
 }
 
-async function deleteBlockFromModal() {
+function deleteBlockFromModal() {
     if (!currentEditBlock) return;
+    document.getElementById('modal-confirm-delete-block').classList.remove('hidden');
+}
 
-    if (!confirm('¿Eliminar este bloque?')) return;
+async function confirmDeleteBlock() {
+    if (!currentEditBlock) return;
 
     try {
         const res = await fetch('/delete_block', {
@@ -545,6 +555,7 @@ async function deleteBlockFromModal() {
             if (typeof loadSubjectsFromDatabase === 'function') {
                 loadSubjectsFromDatabase();
             }
+            document.getElementById('modal-confirm-delete-block').classList.add('hidden');
             document.getElementById('modal-edit-block').classList.add('hidden');
             currentEditBlock = null;
         } else {
