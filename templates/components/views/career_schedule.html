@@ -88,7 +88,14 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">NRC</label>
-                        <input type="text" id="block-nrc" placeholder="1234" class="w-full border border-slate-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono">
+                        <div class="relative">
+                            <input type="text" id="block-nrc" placeholder="Buscar / escribir NRC" 
+                                   class="w-full border border-slate-300 rounded-lg p-2 text-sm outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+                                   oninput="filterNrcOptions()" onfocus="showNrcOptions()" onblur="hideNrcOptionsDelayed()">
+                            <div id="block-nrc-options" class="hidden absolute top-full left-0 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto z-50 text-xs">
+                                <!-- NRC options injected from JS -->
+                            </div>
+                        </div>
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-500 mb-1 uppercase">Sección</label>

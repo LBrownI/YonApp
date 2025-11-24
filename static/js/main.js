@@ -77,8 +77,9 @@ function switchTab(tabId) {
         'timetable': 'Visualizador de Horarios',
         'occupancy': 'Monitor de Ocupación',
         'finder': 'Buscador de Salas',
-        'career-schedule': 'Planificador',
-        'career-list': 'Administración de Carreras'
+        'career-schedule': 'Planificador Académico',
+        'career-list': 'Administración de Carreras',
+        'subject-list': 'Buscador de Asignaturas'
     };
     const titleEl = document.getElementById('page-title');
     if (titleEl) titleEl.innerText = titles[tabId] || 'YonApp';
@@ -86,6 +87,11 @@ function switchTab(tabId) {
     // Hook para el gráfico de salas (si estamos en esa pestaña y existe la data)
     if(tabId === 'occupancy' && typeof renderOccupancyChart === 'function' && typeof globalData !== 'undefined' && globalData) {
         setTimeout(renderOccupancyChart, 50);
+    }
+
+    // Hook para cargar asignaturas
+    if(tabId === 'subject-list' && typeof loadSubjectsFromDatabase === 'function') {
+        loadSubjectsFromDatabase();
     }
     
     lucide.createIcons();

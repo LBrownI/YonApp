@@ -417,8 +417,85 @@ async function submitNewBlock() {
             document.getElementById('modal-add-block').classList.add('hidden');
             document.getElementById('block-nrc').value = '';
             document.getElementById('block-sec').value = '';
+            // Resetear lista de NRC disponibles según la nueva data
+            buildNrcOptions();
         } else {
             alert("Error: " + json.error);
         }
     } catch(e) { alert("Error de conexión"); }
+}
+
+// --- AUTOCOMPLETE DE NRC EN MODAL ---
+
+function buildNrcOptions() {
+    const code = document.getElementById('schedule-career-selector').value;
+    const malla = document.getElementById('schedule-malla-selector').value;
+    const sem = document.getElementById('schedule-sem-selector').value;
+    const container = document.getElementById('block-nrc-options');
+    if(!container) return;
+
+    container.innerHTML = '';
+
+    if(!code || !careerDatabase[code]) return;
+
+    const allBlocks = careerDatabase[code].planificacion || [];
+    const filteredBlocks = allBlocks.filter(b => {
+        if(malla && b.malla !== malla) return false;
+        if(sem && String(b.semestre) !== String(sem)) return false;
+        return true;
+    });
+
+    const seen = new Set();
+    filteredBlocks.forEach(b => {
+        const key = `${b.nrc}-${b.seccion}`;
+        if(seen.has(key)) return;
+        seen.add(key);
+
+        const div = document.createElement('div');
+        div.className = "px-2 py-1 hover:bg-purple-50 cursor-pointer flex justify-between items-center";
+        div.innerHTML = `
+            <span class="font-mono text-slate-700">${b.nrc}</span>
+            <span class="text-[10px] text-slate-400 ml-2">${b.seccion}</span>
+        `;
+        div.onclick = () => {
+            document.getElementById('block-nrc').value = b.nrc;
+            document.getElementById('block-sec').value = b.seccion;
+            container.classList.add('hidden');
+        };
+        container.appendChild(div);
+    });
+}
+
+function showNrcOptions() {
+    const container = document.getElementById('block-nrc-options');
+    if(container) {
+        buildNrcOptions();
+        container.classList.remove('hidden');
+    }
+}
+
+function hideNrcOptionsDelayed() {
+    setTimeout(() => {
+        const container = document.getElementById('block-nrc-options');
+        if(container) container.classList.add('hidden');
+    }, 200);
+}
+
+function filterNrcOptions() {
+    const input = document.getElementById('block-nrc');
+    const container = document.getElementById('block-nrc-options');
+    if(!input || !container) return;
+
+    const query = input.value.toString().toUpperCase();
+
+    // Si todavía no hemos construido la lista, hacerlo ahora
+    if(!container.children.length) buildNrcOptions();
+
+    Array.from(container.children).forEach(child => {
+        const text = child.innerText.toUpperCase();
+        if(text.includes(query)) child.classList.remove('hidden');
+        else child.classList.add('hidden');
+    });
+
+    container.classList.remove('hidden');
 }
