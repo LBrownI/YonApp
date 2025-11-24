@@ -78,8 +78,8 @@ function switchTab(tabId) {
         'occupancy': 'Monitor de Ocupación',
         'finder': 'Buscador de Salas',
         'career-schedule': 'Planificador Académico',
-        'career-list': 'Administración de Carreras',
-        'subject-list': 'Buscador de Asignaturas'
+        'career-list': 'Carreras',
+        'subject-list': 'Asignaturas'
     };
     const titleEl = document.getElementById('page-title');
     if (titleEl) titleEl.innerText = titles[tabId] || 'YonApp';
