@@ -132,41 +132,6 @@ def edit_block():
     return jsonify({"success": True, "data": CAREER_DATABASE})
 
 
-@careers_bp.route("/delete_block", methods=["POST"])
-def delete_block():
-    data = request.json
-    code = data.get("career_code")
-    malla = data.get("malla")
-    semestre = data.get("semestre")
-    dia = data.get("dia")
-    mod = int(data.get("modulo"))
-    nrc = data.get("nrc")
-    seccion = data.get("seccion")
-
-    career = CAREER_DATABASE.get(code)
-    if not career:
-        return jsonify({"success": False, "error": "Carrera no encontrada"}), 400
-
-    original_len = len(career.get("planificacion", []))
-    career["planificacion"] = [
-        b
-        for b in career.get("planificacion", [])
-        if not (
-            b.get("malla") == malla
-            and str(b.get("semestre")) == str(semestre)
-            and b.get("dia") == dia
-            and int(b.get("modulo")) == mod
-            and str(b.get("nrc")) == str(nrc)
-            and b.get("seccion") == seccion
-        )
-    ]
-
-    if len(career["planificacion"]) == original_len:
-        return jsonify({"success": False, "error": "Bloque no encontrado"}), 404
-
-    return jsonify({"success": True, "data": CAREER_DATABASE})
-
-
 @careers_bp.route("/delete_career", methods=["POST"])
 def delete_career():
     data = request.json
@@ -200,3 +165,23 @@ def add_block():
     CAREER_DATABASE[code]["planificacion"].append(new_block)
 
     return jsonify({"success": True, "data": CAREER_DATABASE})
+
+@careers_bp.route("/delete_planning_block", methods=["POST"])
+def delete_planning_block():
+    data = request.json
+    code = data.get("career_code")
+    block_idx = data.get("block_index") # El índice del bloque en la lista (0, 1, 2...)
+
+    if code not in CAREER_DATABASE:
+        return jsonify({"error": "Carrera no encontrada"}), 404
+
+    try:
+        # Eliminamos el bloque usando su índice en la lista
+        career_plan = CAREER_DATABASE[code]["planificacion"]
+        if 0 <= block_idx < len(career_plan):
+            del career_plan[block_idx]
+            return jsonify({"success": True, "data": CAREER_DATABASE})
+        else:
+            return jsonify({"error": "Índice de bloque inválido"}), 400
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

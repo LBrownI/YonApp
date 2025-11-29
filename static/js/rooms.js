@@ -124,7 +124,7 @@ function deleteRoom(roomName) {
     document.getElementById('modal-delete-confirm').classList.remove('hidden');
 }
 
-function closeDeleteModal() {
+function closeRoomDeleteModal() {
     document.getElementById('modal-delete-confirm').classList.add('hidden');
     roomPendingDelete = null;
 }
@@ -137,7 +137,7 @@ async function confirmDeleteRoom() {
             body: JSON.stringify({ room_name: roomPendingDelete })
         });
         const json = await res.json();
-        closeDeleteModal();
+        closeRoomDeleteModal();
         if(json.success) {
             globalData.stats = globalData.stats.filter(r => r.sala !== roomPendingDelete);
             applyFiltersAndSort();
@@ -147,7 +147,7 @@ async function confirmDeleteRoom() {
             showStatusModal('error', 'Error', json.error);
         }
     } catch(e) { 
-        closeDeleteModal();
+        closeRoomDeleteModal();
         showStatusModal('error', 'Error', 'Error de conexión al eliminar.'); 
     }
 }
@@ -362,7 +362,7 @@ function openDetailsPanel(encodedCls) {
             </div>
             
             <div class="pt-4 mt-auto">
-                <button onclick="openDeleteModal('${encodedCls}')" class="w-full bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold py-2 rounded border border-red-200 transition flex items-center justify-center gap-2">
+                <button onclick="openBlockDeleteModal('${encodedCls}')" class="w-full bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold py-2 rounded border border-red-200 transition flex items-center justify-center gap-2">
                     <i data-lucide="trash-2" class="w-4 h-4"></i> Eliminar Bloque
                 </button>
             </div>
@@ -512,7 +512,7 @@ async function submitAssignment() {
 }
 
 // --- ELIMINACIÓN DE BLOQUES ---
-function openDeleteModal(encodedCls) {
+function openBlockDeleteModal(encodedCls) {
     blockToDelete = JSON.parse(decodeURIComponent(encodedCls));
     const modal = document.getElementById('modal-delete-block');
     if (modal) {
@@ -521,7 +521,7 @@ function openDeleteModal(encodedCls) {
     }
 }
 
-function closeDeleteModal() {
+function closeBlockDeleteModal() {
     blockToDelete = null;
     const modal = document.getElementById('modal-delete-block');
     if (modal) {
@@ -530,7 +530,7 @@ function closeDeleteModal() {
     }
 }
 
-async function confirmDeleteBlock() {
+async function confirmRoomBlockDelete() {
     if (!blockToDelete) {
         showStatusModal('error', 'Error Interno', 'No hay bloque seleccionado para eliminar.');
         return;
@@ -562,7 +562,7 @@ async function confirmDeleteBlock() {
                 );
             }
             
-            closeDeleteModal();
+            closeBlockDeleteModal();
             closeDetailsPanel();
             renderTimetable(payload.ubicacion);
             showStatusModal('success', 'Eliminado', 'El bloque ha sido eliminado correctamente.');
