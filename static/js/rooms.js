@@ -297,7 +297,7 @@ function renderTimetable(salaName) {
         const cell = document.getElementById(cellId);
         if (cell) {
             cell.classList.remove('bg-green-50', 'ring-2', 'ring-green-500', 'ring-inset');
-            const clsString = encodeURIComponent(JSON.stringify(cls));
+            const clsString = encodeURIComponent(JSON.stringify(cls)).replace(/'/g, "%27");
             
             const isManual = cls.type === 'manual';
             const cardClasses = isManual 
@@ -306,7 +306,7 @@ function renderTimetable(salaName) {
 
             cell.innerHTML = `
                 <div onclick="openDetailsPanel('${clsString}')" class="${cardClasses} border-l-4 p-1.5 rounded text-xs shadow-sm h-full overflow-hidden flex flex-col justify-center items-center text-center cursor-pointer transition-colors group">
-                    <div class="font-bold truncate w-full group-hover:scale-105 transition-transform" title="NRC: ${cls.nrc} Sec: ${cls.seccion}">
+                    <div class="font-bold w-full leading-tight group-hover:scale-105 transition-transform" title="NRC: ${cls.nrc} Sec: ${cls.seccion}">
                         NRC ${cls.nrc} – ${cls.seccion}
                     </div>
                 </div>
@@ -531,39 +531,47 @@ function closeDeleteModal() {
 }
 
 async function confirmDeleteBlock() {
-    if (!blockToDelete) return;
+    if (!blockToDelete) {
+        showStatusModal('error', 'Error Interno', 'No hay bloque seleccionado para eliminar.');
+        return;
+    }
+
+    const payload = { ...blockToDelete };
 
     try {
         const response = await fetch('/delete_assignment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(blockToDelete)
+            body: JSON.stringify(payload)
         });
+
+        if (!response.ok) {
+            throw new Error(`Error del servidor: ${response.status}`);
+        }
 
         const result = await response.json();
 
         if (result.success) {
-            // Eliminar del globalData localmente
             if (globalData && globalData.schedule) {
                 globalData.schedule = globalData.schedule.filter(item => 
-                    !(item.nrc === blockToDelete.nrc && 
-                      item.seccion === blockToDelete.seccion && 
-                      item.dia_norm === blockToDelete.dia_norm && 
-                      item.modulo === blockToDelete.modulo &&
-                      item.ubicacion === blockToDelete.ubicacion)
+                    !(item.nrc === payload.nrc && 
+                      item.seccion === payload.seccion && 
+                      item.dia_norm === payload.dia_norm && 
+                      item.modulo === payload.modulo &&
+                      item.ubicacion === payload.ubicacion)
                 );
             }
             
             closeDeleteModal();
             closeDetailsPanel();
-            renderTimetable(blockToDelete.ubicacion);
+            renderTimetable(payload.ubicacion);
             showStatusModal('success', 'Eliminado', 'El bloque ha sido eliminado correctamente.');
         } else {
             showStatusModal('error', 'Error', result.error || 'No se pudo eliminar.');
         }
     } catch (error) {
         console.error("Error eliminando:", error);
-        showStatusModal('error', 'Error', 'Fallo de conexión.');
+        showStatusModal('error', 'Error', 'Fallo de conexión o error del servidor.');
     }
 }
 

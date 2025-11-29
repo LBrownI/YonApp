@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
             await new Promise(r=>setTimeout(r,300));
             await del();
             await new Promise(r=>setTimeout(r,300));
-            await type("✨Your on campus network✨");
+            await type("✨Your on-campus network✨");
         })();
     }
 });
