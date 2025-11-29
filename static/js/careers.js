@@ -234,11 +234,13 @@ function updateAddButtonState() {
 
     if (!btn) return;
 
-    if (code && malla && sem) {
-        // Estado Activo (Original)
+    const isReady = Boolean(code && malla && sem);
+    btn.disabled = !isReady;
+    btn.setAttribute('aria-disabled', String(!isReady));
+
+    if (isReady) {
         btn.className = "bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm flex items-center gap-2";
     } else {
-        // Estado Inactivo (Desaturado)
         btn.className = "bg-purple-200 text-purple-400 px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 cursor-not-allowed";
     }
 }
@@ -282,12 +284,13 @@ function updateScheduleFilters() {
     }
 }
 
-let currentBlockIndex = null; 
-
 function renderCareerGrid() {
     const code = document.getElementById('schedule-career-selector').value;
     const malla = document.getElementById('schedule-malla-selector').value;
     const sem = document.getElementById('schedule-sem-selector').value;
+    const codeLiteral = JSON.stringify(code);
+    const mallaLiteral = JSON.stringify(malla);
+    const semLiteral = JSON.stringify(sem);
     const tbody = document.getElementById('schedule-grid-body');
     const emptyState = document.getElementById('schedule-empty-state');
 
@@ -333,15 +336,18 @@ function renderCareerGrid() {
                     if(block.tipo === 'TAL') bgClass = "bg-green-50 border-green-200 text-green-700";
                     if(block.tipo === 'SIM') bgClass = "bg-purple-50 border-purple-200 text-purple-700";
 
-                    // CAMBIO AQUÍ: Agregamos onclick para abrir detalle/borrar
+                    const nrcLiteral = JSON.stringify(block.nrc);
+                    const secLiteral = JSON.stringify(block.seccion);
+                    const dayLiteral = JSON.stringify(day);
+
                     return `
-                        <div class="flex-1 ${bgClass} border border-l-4 p-1 text-xs flex flex-col justify-center items-center overflow-hidden hover:brightness-95 transition cursor-pointer text-center group relative">
+                        <div class="flex-1 ${bgClass} border border-l-4 p-1 text-xs flex flex-col justify-center items-center overflow-hidden hover:brightness-95 transition cursor-pointer text-center group relative"
+                             onclick='openEditBlockModal(${codeLiteral}, ${mallaLiteral}, ${semLiteral}, ${dayLiteral}, ${i+1}, ${nrcLiteral}, ${secLiteral})'>
+                            <button type="button" onclick='promptDeleteBlock(${block.originalIndex}, ${codeLiteral}); event.stopPropagation();' class="absolute top-1 right-1 hidden group-hover:flex items-center justify-center bg-white/80 text-red-600 rounded-full p-1 shadow-sm hover:bg-white">
+                                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                            </button>
                             <div class="font-bold truncate w-full">NRC ${block.nrc}</div>
                             <div class="text-[10px] opacity-80">${block.seccion}</div>
-                            
-                            <div onclick="promptDeleteBlock(${block.originalIndex}); event.stopPropagation();" class="absolute inset-0 bg-black/10 hidden group-hover:flex items-center justify-center text-red-600 z-10">
-                                <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            </div>
                         </div>
                     `;
                 }).join('');
@@ -354,45 +360,6 @@ function renderCareerGrid() {
         tbody.appendChild(tr);
     }
     if(window.lucide) lucide.createIcons();
-}
-
-// --- NUEVAS FUNCIONES PARA BORRAR BLOQUES ---
-
-function openBlockDetails(index) {
-    currentBlockIndex = index; // Guardamos qué bloque se clickeó
-    
-    // Si tienes un modal de confirmación, lo abrimos
-    if(confirm("¿Deseas eliminar este bloque de la planificación?")) {
-        deletePlanningBlock();
-    }
-}
-
-async function deletePlanningBlock() {
-    const careerCode = document.getElementById('schedule-career-selector').value;
-    
-    if (currentBlockIndex === null || !careerCode) return;
-
-    try {
-        const res = await fetch('/delete_planning_block', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ 
-                career_code: careerCode,
-                block_index: currentBlockIndex
-            })
-        });
-        
-        const json = await res.json();
-        if(json.success) {
-            careerDatabase = json.data; // Actualizar datos
-            renderCareerGrid(); // Repintar la tabla (el bloque desaparecerá)
-            currentBlockIndex = null;
-        } else {
-            alert("Error: " + json.error);
-        }
-    } catch(e) {
-        alert("Error de conexión");
-    }
 }
 
 // --- FUNCIONES NUEVAS: AÑADIR BLOQUE ---
@@ -576,42 +543,23 @@ async function saveEditedBlock() {
 
 function deleteBlockFromModal() {
     if (!currentEditBlock) return;
-    document.getElementById('modal-confirm-delete-block').classList.remove('hidden');
-}
+    const code = currentEditBlock.careerCode;
+    const plan = (careerDatabase[code] && careerDatabase[code].planificacion) || [];
+    const matchIndex = plan.findIndex(block =>
+        block.malla === currentEditBlock.malla &&
+        String(block.semestre) === String(currentEditBlock.semestre) &&
+        block.dia === currentEditBlock.dia &&
+        Number(block.modulo) === Number(currentEditBlock.modulo) &&
+        String(block.nrc) === String(currentEditBlock.nrc) &&
+        block.seccion === currentEditBlock.seccion
+    );
 
-async function confirmDeleteBlock() {
-    if (!currentEditBlock) return;
-
-    try {
-        const res = await fetch('/delete_block', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                career_code: currentEditBlock.careerCode,
-                malla: currentEditBlock.malla,
-                semestre: currentEditBlock.semestre,
-                dia: currentEditBlock.dia,
-                modulo: currentEditBlock.modulo,
-                nrc: currentEditBlock.nrc,
-                seccion: currentEditBlock.seccion
-            })
-        });
-        const json = await res.json();
-        if (json.success) {
-            careerDatabase = json.data;
-            renderCareerGrid();
-            if (typeof loadSubjectsFromDatabase === 'function') {
-                loadSubjectsFromDatabase();
-            }
-            document.getElementById('modal-confirm-delete-block').classList.add('hidden');
-            document.getElementById('modal-edit-block').classList.add('hidden');
-            currentEditBlock = null;
-        } else {
-            alert('Error: ' + json.error);
-        }
-    } catch (e) {
-        alert('Error de conexión');
+    if (matchIndex === -1) {
+        alert('No se pudo identificar el bloque a eliminar.');
+        return;
     }
+
+    promptDeleteBlock(matchIndex, code);
 }
 
 // --- AUTOCOMPLETE DE NRC EN MODAL ---
@@ -692,10 +640,13 @@ function filterNrcOptions() {
 // --- ELIMINACIÓN DE BLOQUES (CARRERAS) ---
 
 let blockIndexToDelete = null;
+let blockCareerForDeletion = null;
 
-function promptDeleteBlock(index) {
+function promptDeleteBlock(index, careerCode = null) {
     blockIndexToDelete = index;
-    // Mostrar el modal que ya tienes en career_schedule.html
+    const selector = document.getElementById('schedule-career-selector');
+    blockCareerForDeletion = careerCode || (selector ? selector.value : null);
+
     const modal = document.getElementById('modal-confirm-delete-block');
     if(modal) {
         modal.classList.remove('hidden');
@@ -703,35 +654,52 @@ function promptDeleteBlock(index) {
     }
 }
 
-async function confirmDeleteBlock() {
-    const code = document.getElementById('schedule-career-selector').value;
-    
-    if (blockIndexToDelete === null || !code) return;
+async function confirmPlanningBlockDelete() {
+    const targetCareer = blockCareerForDeletion;
+
+    if (blockIndexToDelete === null || !targetCareer) {
+        alert('Selecciona un bloque válido para eliminar.');
+        return;
+    }
 
     try {
         const res = await fetch('/delete_planning_block', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ 
-                career_code: code,
+                career_code: targetCareer,
                 block_index: blockIndexToDelete
             })
         });
-        
         const json = await res.json();
-        
-        // Cerrar modal
-        document.getElementById('modal-confirm-delete-block').classList.add('hidden');
-        document.getElementById('modal-confirm-delete-block').classList.remove('flex');
 
         if(json.success) {
-            careerDatabase = json.data; // Actualizar datos locales
-            renderCareerGrid(); // Repintar la tabla
+            careerDatabase = json.data;
+            renderCareerGrid();
+            if (typeof loadSubjectsFromDatabase === 'function') {
+                loadSubjectsFromDatabase();
+            }
+            const confirmModal = document.getElementById('modal-confirm-delete-block');
+            if(confirmModal) {
+                confirmModal.classList.add('hidden');
+                confirmModal.classList.remove('flex');
+            }
+            const editModal = document.getElementById('modal-edit-block');
+            if(editModal) {
+                editModal.classList.add('hidden');
+            }
             blockIndexToDelete = null;
+            blockCareerForDeletion = null;
+            currentEditBlock = null;
         } else {
             alert("Error: " + json.error);
         }
     } catch(e) {
         alert("Error de conexión");
     }
+}
+
+function handleScheduleSelectorChange() {
+    updateAddButtonState();
+    renderCareerGrid();
 }
